@@ -8,7 +8,7 @@
 #include <geometry_msgs/PointStamped.h>
 #include <std_msgs/Float32.h>
 
-#include <hector_move_base_msgs/move_base_action.h>
+//#include <hector_move_base_msgs/move_base_action.h>
 #include <mocup_controller/four_wheel_steer_controller.h>
 #include <mocup_controller/differential_drive_controller.h>
 #include <mocup_controller/point_turn_drive_controller.h>
@@ -110,10 +110,10 @@ bool Controller::configure()
 
   // action interface
   ros::NodeHandle action_nh("controller");
-  actionSubscriber      = action_nh.subscribe("generic", 10, &Controller::actionCallback, this);
-  actionGoalSubscriber  = action_nh.subscribe("goal", 10, &Controller::actionGoalCallback, this);
-  actionPathSubscriber  = action_nh.subscribe("path", 10, &Controller::actionPathCallback, this);
-  actionResultPublisher = action_nh.advertise<hector_move_base_msgs::MoveBaseActionResult>("result", 1);
+//  actionSubscriber      = action_nh.subscribe("generic", 10, &Controller::actionCallback, this);
+//  actionGoalSubscriber  = action_nh.subscribe("goal", 10, &Controller::actionGoalCallback, this);
+//  actionPathSubscriber  = action_nh.subscribe("path", 10, &Controller::actionPathCallback, this);
+//  actionResultPublisher = action_nh.advertise<hector_move_base_msgs::MoveBaseActionResult>("result", 1);
 
   // alternative_tolerances_service
   alternative_goal_position_tolerance = motion_control_setup.goal_position_tolerance;
@@ -282,52 +282,52 @@ bool Controller::alternativeTolerancesService(mocup_msgs::SetAlternativeToleranc
   return true;
 }
 
-void Controller::actionCallback(const hector_move_base_msgs::MoveBaseActionGeneric& action)
-{
-  publishActionResult(actionlib_msgs::GoalStatus::PREEMPTED, "received a new action");
-  this->goalID.reset(new actionlib_msgs::GoalID(action.goal_id));
+//void Controller::actionCallback(const hector_move_base_msgs::MoveBaseActionGeneric& action)
+//{
+//  publishActionResult(actionlib_msgs::GoalStatus::PREEMPTED, "received a new action");
+//  this->goalID.reset(new actionlib_msgs::GoalID(action.goal_id));
 
-  hector_move_base_msgs::MoveBasePathPtr path_action = hector_move_base_msgs::getAction<hector_move_base_msgs::MoveBasePath>(action);
-  if (path_action) {
-    drivepath(path_action->target_path);
-    drivepathPublisher.publish(path_action->target_path);
-  }
+//  hector_move_base_msgs::MoveBasePathPtr path_action = hector_move_base_msgs::getAction<hector_move_base_msgs::MoveBasePath>(action);
+//  if (path_action) {
+//    drivepath(path_action->target_path);
+//    drivepathPublisher.publish(path_action->target_path);
+//  }
 
-  hector_move_base_msgs::MoveBaseGoalPtr goal_action = hector_move_base_msgs::getAction<hector_move_base_msgs::MoveBaseGoal>(action);
-  if (goal_action) {
-    driveto(goal_action->target_pose);
-    drivepathPublisher.publish(empty_path); // publish empty path
-  }
-}
+//  hector_move_base_msgs::MoveBaseGoalPtr goal_action = hector_move_base_msgs::getAction<hector_move_base_msgs::MoveBaseGoal>(action);
+//  if (goal_action) {
+//    driveto(goal_action->target_pose);
+//    drivepathPublisher.publish(empty_path); // publish empty path
+//  }
+//}
 
-void Controller::actionGoalCallback(const hector_move_base_msgs::MoveBaseActionGoal& goal_action)
-{
-  publishActionResult(actionlib_msgs::GoalStatus::PREEMPTED, "received a new goal");
-  this->goalID.reset(new actionlib_msgs::GoalID(goal_action.goal_id));
+//void Controller::actionGoalCallback(const hector_move_base_msgs::MoveBaseActionGoal& goal_action)
+//{
+//  publishActionResult(actionlib_msgs::GoalStatus::PREEMPTED, "received a new goal");
+//  this->goalID.reset(new actionlib_msgs::GoalID(goal_action.goal_id));
 
-  driveto(goal_action.goal.target_pose);
-  drivepathPublisher.publish(empty_path); // publish empty path
-}
+//  driveto(goal_action.goal.target_pose);
+//  drivepathPublisher.publish(empty_path); // publish empty path
+//}
 
-void Controller::actionPathCallback(const hector_move_base_msgs::MoveBaseActionPath& path_action)
-{
-  publishActionResult(actionlib_msgs::GoalStatus::PREEMPTED, "received a new path");
-  this->goalID.reset(new actionlib_msgs::GoalID(path_action.goal_id));
+//void Controller::actionPathCallback(const hector_move_base_msgs::MoveBaseActionPath& path_action)
+//{
+//  publishActionResult(actionlib_msgs::GoalStatus::PREEMPTED, "received a new path");
+//  this->goalID.reset(new actionlib_msgs::GoalID(path_action.goal_id));
 
-  drivepath(path_action.goal.target_path);
-  drivepathPublisher.publish(path_action.goal.target_path);
-}
+//  drivepath(path_action.goal.target_path);
+//  drivepathPublisher.publish(path_action.goal.target_path);
+//}
 
 void Controller::publishActionResult(actionlib_msgs::GoalStatus::_status_type status, const std::string& text) {
   if (!goalID) return;
 
-  hector_move_base_msgs::MoveBaseActionResult result;
-  result.header.stamp = this->pose.header.stamp;
-  result.status.goal_id = *goalID;
-  result.status.status = status;
-  result.status.text = text;
+//  hector_move_base_msgs::MoveBaseActionResult result;
+//  result.header.stamp = this->pose.header.stamp;
+//  result.status.goal_id = *goalID;
+//  result.status.status = status;
+//  result.status.text = text;
 
-  actionResultPublisher.publish(result);
+//  actionResultPublisher.publish(result);
 
   if (status != actionlib_msgs::GoalStatus::ACTIVE && status != actionlib_msgs::GoalStatus::PENDING)
     goalID.reset();

@@ -14,7 +14,8 @@
   <depend package="mocup_msgs" />
   <depend package="nav_msgs" />
   <depend package="geometry_msgs" />
-  <depend package="hector_move_base_msgs" />
+  <depend package="actionlib_msgs" />
+  <!-- depend package="hector_move_base_msgs" / -->
 
 </package>
 

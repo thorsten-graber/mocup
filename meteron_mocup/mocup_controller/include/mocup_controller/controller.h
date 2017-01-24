@@ -10,10 +10,11 @@
 #include <mocup_msgs/SetAlternativeTolerance.h>
 #include <std_msgs/Float32.h>
 
-#include <hector_move_base_msgs/MoveBaseActionGeneric.h>
-#include <hector_move_base_msgs/MoveBaseActionGoal.h>
-#include <hector_move_base_msgs/MoveBaseActionPath.h>
-#include <hector_move_base_msgs/MoveBaseActionResult.h>
+//#include <hector_move_base_msgs/MoveBaseActionGeneric.h>
+//#include <hector_move_base_msgs/MoveBaseActionGoal.h>
+//#include <hector_move_base_msgs/MoveBaseActionPath.h>
+//#include <hector_move_base_msgs/MoveBaseActionResult.h>
+#include <actionlib_msgs/GoalStatus.h>
 
 #include <ros/ros.h>
 #include <tf/transform_listener.h>
@@ -65,9 +66,9 @@ protected:
   virtual void speedCallback(const std_msgs::Float32&);
   virtual bool alternativeTolerancesService(mocup_msgs::SetAlternativeTolerance::Request& req, mocup_msgs::SetAlternativeTolerance::Response& res);
 
-  virtual void actionCallback(const hector_move_base_msgs::MoveBaseActionGeneric&);
-  virtual void actionGoalCallback(const hector_move_base_msgs::MoveBaseActionGoal&);
-  virtual void actionPathCallback(const hector_move_base_msgs::MoveBaseActionPath&);
+//  virtual void actionCallback(const hector_move_base_msgs::MoveBaseActionGeneric&);
+//  virtual void actionGoalCallback(const hector_move_base_msgs::MoveBaseActionGoal&);
+//  virtual void actionPathCallback(const hector_move_base_msgs::MoveBaseActionPath&);
   virtual void publishActionResult(actionlib_msgs::GoalStatus::_status_type, const std::string& text = std::string());
 
   void addLeg(geometry_msgs::Pose const&);
@@ -92,9 +93,9 @@ private:
 
 
   // action interface
-  ros::Subscriber actionSubscriber;
-  ros::Subscriber actionGoalSubscriber;
-  ros::Subscriber actionPathSubscriber;
+//  ros::Subscriber actionSubscriber;
+//  ros::Subscriber actionGoalSubscriber;
+//  ros::Subscriber actionPathSubscriber;
   ros::Publisher actionResultPublisher;
 
   //Service Provider
