@@ -1,0 +1,10 @@
+meteron_mocup/mocup_controller/bin
+meteron_mocup/mocup_controller/build
+meteron_mocup/mocup_description/build
+meteron_mocup/mocup_gazebo/build
+meteron_mocup/mocup_gazebo_plugins/build
+meteron_mocup/mocup_gazebo_plugins/lib
+meteron_mocup/mocup_msgs/build
+meteron_mocup/mocup_msgs/src
+meteron_mocup/mocup_msgs/msg_gen
+meteron_mocup/mocup_msgs/srv_gen
