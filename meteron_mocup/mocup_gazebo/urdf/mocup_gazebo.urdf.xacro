@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+
+<robot xmlns:xacro="http://ros.org/wiki/xacro"
+       name="mocup">
+
+  <xacro:include filename="$(find mocup_description)/urdf/mocup_parameters.urdf.xacro" />
+  <xacro:include filename="$(find mocup_description)/urdf/materials.urdf.xacro" />
+  
+  <xacro:include filename="$(find mocup_description)/urdf/mocup_base.urdf.xacro" />
+  <xacro:mocup_base wheel_joint_type="continuous" />
+
+  <xacro:include filename="$(find hector_sensors_description)/urdf/asus_camera.urdf.xacro" />
+    <xacro:asus_camera name="camera" parent="camera_base_link">
+      <origin xyz="0.0 0.0 0.0" rpy="0 0 0"/>
+    </xacro:asus_camera>
+    
+  <xacro:include filename="$(find mocup_gazebo)/urdf/mocup_base_controllers.urdf.xacro" />
+  <xacro:mocup_base_controllers/>
+  
+</robot>

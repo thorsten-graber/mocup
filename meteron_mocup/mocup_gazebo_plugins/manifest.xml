@@ -1,0 +1,27 @@
+<package>
+    <description brief="mocup_gazebo_plugins">
+
+     mocuo_gazebo_plugins
+
+    </description>
+    
+    <author>Thorsten Graber</author>
+    <license>BSD</license>
+    <review status="unreviewed" notes=""/>
+    <url>http://ros.org/wiki/mocup_gazebo_plugins</url>
+
+    <depend package="roscpp"/>
+    <depend package="gazebo_ros"/>
+    <depend package="gazebo_plugins"/>
+
+    <depend package="mocup_msgs"/>
+
+    <rosdep name="gazebo"/>
+
+    <export>
+        <gazebo_ros plugin_path="${prefix}/lib" />
+    </export>    
+
+</package>
+
+

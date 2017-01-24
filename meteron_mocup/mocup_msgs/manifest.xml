@@ -1,0 +1,20 @@
+<package>
+  <description brief="mocup_msgs">
+
+     mocup_msgs
+
+  </description>
+  <author>Thorsten Graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/mocup_msgs</url>
+
+  <depend package="geometry_msgs"/>
+  <depend package="actionlib_msgs"/>
+
+  <export>
+    <cpp cflags="-I${prefix}/include"/>
+  </export>
+</package>
+
+

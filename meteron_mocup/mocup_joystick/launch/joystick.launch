@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+
+<launch>
+  <arg name="dev" default="/dev/input/js0"/>
+  <arg name="config"/>
+
+  <node name="joy" pkg="joy" type="joy_node" respawn="false" output="screen">
+    <param name="dev" value="$(arg dev)" />
+  </node>
+
+  <node name="mocup_joystick" pkg="mocup_joystick" type="mocup_joystick" respawn="false" output="screen">
+    <rosparam file="$(find mocup_joystick)/config/common.yaml" />
+    <rosparam file="$(find mocup_joystick)/config/$(arg config).yaml" />
+  </node>
+</launch>

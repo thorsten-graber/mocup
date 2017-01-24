@@ -1,0 +1,1 @@
+rosbuild_add_executable(controller_node controller.cpp)

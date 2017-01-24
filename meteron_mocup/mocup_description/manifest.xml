@@ -1,0 +1,14 @@
+<package>
+  <description brief="meteron_mocup_description">
+
+     meteron_mocup_description
+
+  </description>
+  <author>Thorsten Graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/meteron_mocup_description</url>
+
+</package>
+
+

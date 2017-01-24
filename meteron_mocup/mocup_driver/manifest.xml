@@ -1,0 +1,20 @@
+<package>
+  <description brief="mocup_driver">
+
+     mocup_driver
+
+  </description>
+  <author>Thorsten Graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/mocup_driver</url>
+
+  <depend package="tf" />
+  <depend package="mocup_msgs" />
+  <depend package="nav_msgs" />
+  <depend package="geometry_msgs" />
+  <depend package="std_msgs" />
+
+</package>
+
+

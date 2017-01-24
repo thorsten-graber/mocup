@@ -1,0 +1,16 @@
+<package>
+  <description brief="mocup_joystick">
+
+     mocup_joystick
+
+  </description>
+  <author>Thorsten graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/mocup_joystick</url>
+
+  <depend package="roscpp"/>
+  <depend package="sensor_msgs"/>
+  <depend package="mocup_msgs"/>
+  <depend package="geometry_msgs"/>
+</package>

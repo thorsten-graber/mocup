@@ -1,0 +1,15 @@
+<package>
+  <description brief="mocup_arduino">
+
+     mocup_arduino
+
+  </description>
+  <author>Thorsten Graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/mocup_arduino</url>
+  <depend package="rosserial_python" />
+
+</package>
+
+

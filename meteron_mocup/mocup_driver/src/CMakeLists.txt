@@ -1,0 +1,1 @@
+rosbuild_add_executable(driver_node mocup_driver.cpp)
