@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<launch>
+	<param name="robot_description" command="$(find xacro)/xacro.py $(find mocup_description)/urdf/mocup.urdf.xacro" />
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher" output="screen">
+            <param name="publish_frequency" type="double" value="100.0" />
+	</node>
+	<include file="$(find mocup_arduino)/launch/arduino.launch" />
+	<include file="$(find mocup_driver)/launch/driver.launch" />
+	<include file="$(find mocup_controller)/launch/controller.launch" />
+</launch>

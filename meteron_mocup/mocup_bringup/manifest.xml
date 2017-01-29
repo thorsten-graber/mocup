@@ -1,0 +1,18 @@
+<package>
+  <description brief="mocup_bringup">
+
+     mocup_bringup
+
+  </description>
+  <author>Thorsten Graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/mocup_bringup</url>
+
+  <depend package="mocup_description" />
+  <depend package="mocup_arduino" />
+  <depend package="mocup_driver" />
+  <depend package="mocup_controller" />
+</package>
+
+
