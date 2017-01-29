@@ -183,9 +183,9 @@ void Driver::motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg)
     if(!strcmp(cmd_msg.mode.c_str(), "point_turn")) {
         // Steer wheels to 45deg
         motor_control_parameters.control_input.data[0] = pwm;
-        motor_control_parameters.control_input.data[1] = 45;
-        motor_control_parameters.control_input.data[2] = pwm;
-        motor_control_parameters.control_input.data[3] = 45;
+        motor_control_parameters.control_input.data[1] = 90; //fix arduino_driver scale factor
+        motor_control_parameters.control_input.data[2] = -pwm;
+        motor_control_parameters.control_input.data[3] = -90; //fix arduino_driver scale factor
     }
 
     update();
@@ -245,7 +245,7 @@ void Driver::publishOdometry()
     double s;
 
     // Calculate vehicle geometry
-    b = motor_control_parameters.wheel_base / 2;
+    b = motor_control_parameters.wheel_base / 2.0;
     r = motor_control_parameters.wheel_radius;
 
     alpha_r = degToRad(posToDeg(actual_readings.motor.position.right_wheel_joint - previous_readings.motor.position.right_wheel_joint));
@@ -254,16 +254,16 @@ void Driver::publishOdometry()
     phi_l   = actual_readings.motor.angle.left_suspension_wheel_joint;
 
     // Calculate angular velocity for ICC which is same as angular velocity of vehicle
-    yaw = (alpha_l * sin(phi_l) + alpha_r * sin(phi_r)* r) / (2 * b);
+    yaw = ((alpha_l * sin(phi_l) + alpha_r * sin(phi_r))* r) / (2.0 * b );
 
     s = r * (alpha_l + alpha_r)/2;
 
     // Compute odometric pose
-    pose.x   += s * cos(yaw);
-    pose.y   += s * sin(yaw);
     pose.yaw += yaw;
+    pose.x   += s * cos(pose.yaw);
+    pose.y   += s * sin(pose.yaw);
 
-    geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(yaw);
+    geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(pose.yaw);
 
     // Publish tf
     odom_trans.header.stamp    = actual_readings.stamp;
