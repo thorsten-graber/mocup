@@ -55,7 +55,7 @@ namespace Mocup {
       motionCommand.brake = joystick->buttons[button_brake-1];
     }
 
-    motionCommand.mode  = "ackermann";
+    motionCommand.mode  = "contineous";
     if (button_mode > 0 && (size_t) button_mode <= joystick->buttons.size()) {
       if (joystick->buttons[button_mode-1]) {
           motionCommand.mode  = "point_turn";

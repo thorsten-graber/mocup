@@ -3,7 +3,8 @@
 
 #include <ros/ros.h>
 #include <mocup_msgs/MotionCommand.h>
-#include <std_msgs/Int16MultiArray.h>
+#include <mocup_msgs/MotorCommand.h>
+#include <mocup_msgs/RawSensors.h>
 #include <geometry_msgs/QuaternionStamped.h>
 #include <sensor_msgs/JointState.h>
 #include <nav_msgs/Odometry.h>
@@ -15,13 +16,14 @@ public:
         float min_velocity;
         float max_velocity;
         float min_object_distance;
-        double wheel_base;
+        double chassis_width;
+        double chassis_length;
         double wheel_radius;
         double wheel_gear;
         double stearing_gear;
         double camera_pan_gear;
         double camera_tilt_gear;
-        std_msgs::Int16MultiArray control_input;
+        mocup_msgs::MotorCommand control_input;
         sensor_msgs::JointState motor_states;
     } MotorControlParameters;
 
@@ -29,7 +31,7 @@ public:
         double x;
         double y;
         double yaw;
-    } Pose;
+    } NavTuple;
 
     typedef struct {
         float range_fl;
@@ -85,24 +87,29 @@ protected:
 
     virtual void motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg);
     virtual void cameraCommandCallback(const geometry_msgs::QuaternionStamped& cmd_msg);
-    virtual void readSensorsCallback(const std_msgs::Int16MultiArray& sensor_msg);
+    virtual void readSensorsCallback(const mocup_msgs::RawSensors &sensor_msg);
 
     virtual void publishOdometry();
     virtual void publishJointStates();
+
+    virtual NavTuple vehicleGeometry(const Sensors &readings);
 
 private:
     ros::NodeHandle nh;
 
     MotorControlParameters motor_control_parameters;
-    Pose pose;
     Sensors actual_readings;
     Sensors previous_readings;
+
+    NavTuple pose, velocity;
+    nav_msgs::Odometry odom;
 
     geometry_msgs::TransformStamped odom_trans;
     tf::TransformBroadcaster odom_broadcaster;
 
     ros::Publisher motor_command_publisher;
     ros::Publisher joint_state_publisher;
+    ros::Publisher odom_publisher;
 
     ros::Subscriber motion_command_subscriber;
     ros::Subscriber camera_command_subscriber;

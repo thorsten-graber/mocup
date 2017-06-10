@@ -1,11 +1,10 @@
-Header header
-int16 wheel_r
-int16 steer_r
 int16 wheel_l
 int16 steer_l
+int16 wheel_r
+int16 steer_r
 int16 cam_yaw
 int16 cam_pit
-uint8 us1
-uint8 us2
-uint8 us3
-uint8 us4
+uint8 us_fl
+uint8 us_fr
+uint8 us_rl
+uint8 us_rr

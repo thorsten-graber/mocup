@@ -1,6 +1,7 @@
 // Include ros libraries
 #include <ros.h>
-#include <std_msgs/Int16MultiArray.h>
+#include <mocup_msgs/MotorCommand.h>
+#include <mocup_msgs/RawSensors.h>
 
 // Include the Bricktronics libraries
 #include <BricktronicsMegashield.h>
@@ -8,7 +9,7 @@
 #include <BricktronicsUltrasonic.h>
 
 #define BAUD 1000000 // 1Mbps
-#define UPDATE_INTERVAL  10  // 1/update rate in ms -> 10ms = 50Hz
+#define UPDATE_INTERVAL  20  // 1/update rate in ms -> 10ms = 50Hz
 
 // Select the desired motor port (MOTOR_1 through MOTOR_6) in the constructor below.
 BricktronicsMotor m1(BricktronicsMegashield::MOTOR_1);
@@ -27,26 +28,26 @@ BricktronicsUltrasonic u4(BricktronicsMegashield::SENSOR_4);
 
 // ROS stuff
 ros::NodeHandle  nh;
-std_msgs::Int16MultiArray sensor_readings;
+mocup_msgs::RawSensors sensor_readings;
 
-void motorCommandCallback(const std_msgs::Int16MultiArray& cmd_msg)
+void motorCommandCallback(const mocup_msgs::MotorCommand& cmd_msg)
 {   
-  m1.setFixedDrive(cmd_msg.data[0]);
-  m2.goToAngle(cmd_msg.data[1]);
-  m3.setFixedDrive(cmd_msg.data[2]);
-  m4.goToAngle(cmd_msg.data[3]);
-  m5.goToAngle(cmd_msg.data[4]);
-  m6.goToAngle(cmd_msg.data[5]);
+  m1.setFixedDrive(-cmd_msg.speed_r);
+  m2.goToAngle(cmd_msg.steer_r);
+  m3.setFixedDrive(-cmd_msg.speed_l);
+  m4.goToAngle(cmd_msg.steer_l);
+  m5.goToAngle(-cmd_msg.cam_yaw);
+  m6.goToAngle(cmd_msg.cam_pit);
 }
 
 ros::Publisher sensor_publisher("sensor_readings", &sensor_readings);
-ros::Subscriber<std_msgs::Int16MultiArray> motor_command_subscriber("motor_command", motorCommandCallback);
+ros::Subscriber<mocup_msgs::MotorCommand> motor_command_subscriber("motor_command", motorCommandCallback);
 
 SIGNAL(TIMER5_COMPA_vect)
 { 
-    m1.update();
+    //m1.update();
     m2.update();
-    m3.update();
+    //m3.update();
     m4.update();
     m5.update();
     m6.update();
@@ -62,12 +63,12 @@ SIGNAL(TIMER5_COMPA_vect)
 void publishSensorReadings()
 {
   // motor encoders
-  sensor_readings.data[0] = m1.getPosition();
-  sensor_readings.data[1] = m2.getPosition();
-  sensor_readings.data[2] = m3.getPosition();
-  sensor_readings.data[3] = m4.getPosition();
-  sensor_readings.data[4] = m5.getPosition();
-  sensor_readings.data[5] = m6.getPosition();
+  sensor_readings.wheel_r = -m1.getPosition();
+  sensor_readings.steer_r = -m2.getPosition();
+  sensor_readings.wheel_l = -m3.getPosition();
+  sensor_readings.steer_l = -m4.getPosition();
+  sensor_readings.cam_yaw = -m5.getPosition();
+  sensor_readings.cam_pit = m6.getPosition();
 
   sensor_publisher.publish(&sensor_readings);
 }
@@ -80,22 +81,25 @@ void setup()
   nh.advertise(sensor_publisher);
   nh.subscribe(motor_command_subscriber);
 
-  // Initialize sensor readings container with constants
-  sensor_readings.data_length = 10;
-  sensor_readings.data = (int16_t *)malloc(sizeof(int16_t)*10);
-
   // Initialize the motor connections
   m1.pidSetUpdateFrequencyMS(UPDATE_INTERVAL);
   m1.begin();
   m2.pidSetUpdateFrequencyMS(UPDATE_INTERVAL);
+  //m2.pidSetTunings(2.64,14.432,0.1207317073);
+  m2.pidSetTunings(2.64,0.0,0.1207317073);
+  m2.setAngleOutputMultiplier(110);
   m2.begin();
   m3.pidSetUpdateFrequencyMS(UPDATE_INTERVAL);
   m3.begin();
   m4.pidSetUpdateFrequencyMS(UPDATE_INTERVAL);    
+  m4.pidSetTunings(2.64,0.0,0.1207317073);
+  m4.setAngleOutputMultiplier(110);
   m4.begin();
   m5.pidSetUpdateFrequencyMS(UPDATE_INTERVAL);
+  m5.pidSetTunings(1.64,1.0,0.0);
   m5.begin();
   m6.pidSetUpdateFrequencyMS(UPDATE_INTERVAL);
+  m6.pidSetTunings(1.64,1.0,0.0);
   m6.begin();
 
   // Initialize the ultrasonic sensor connections
@@ -125,7 +129,7 @@ void setup()
   TCNT5L=0x00;
   ICR5H=0x00;
   ICR5L=0x00;
-  OCR5AH=0x08;
+  OCR5AH=0x13;
   OCR5AL=0x00;
   OCR5BH=0x00;
   OCR5BL=0x00;
@@ -139,11 +143,12 @@ void setup()
 
 void loop() 
 {
+    
   // read ultrasonic sensors as soon as there is time
-  sensor_readings.data[6] = u1.getDistance();
-  sensor_readings.data[7] = u2.getDistance();
-  sensor_readings.data[8] = u3.getDistance();
-  sensor_readings.data[9] = u4.getDistance();
+  sensor_readings.us_fr = u1.getDistance();
+  sensor_readings.us_fl = u2.getDistance();
+  sensor_readings.us_rr = u3.getDistance();
+  sensor_readings.us_rl = u4.getDistance();
 
   nh.spinOnce();
 }

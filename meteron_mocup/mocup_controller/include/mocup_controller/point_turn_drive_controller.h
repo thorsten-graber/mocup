@@ -81,14 +81,14 @@ class PointTurnDriveController: public VehicleControlInterface
 
         // relative angle OK, drive straight to target
         drive.speed = fabs(speed);
-        drive.mode = "ackermann";
+        drive.mode = "contineous";
         drivePublisher_.publish(drive);
     }
 
     virtual void stop()
     {
       drive.speed = 0.0;
-      drive.mode = "ackermann";
+      drive.mode = "contineous";
       drivePublisher_.publish(drive);
     }
 
@@ -130,7 +130,7 @@ class PointTurnDriveController: public VehicleControlInterface
             drive.steerAngleFront = -drive.steerAngleFront;
         }
         drive.steerAngleRear  = -drive.steerAngleFront;//atan(-tan_gamma + kappa * B);
-        drive.mode = "ackermann";
+        drive.mode = "contineous";
       }
       drivePublisher_.publish(drive);
     }

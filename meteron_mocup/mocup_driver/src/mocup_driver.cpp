@@ -17,6 +17,10 @@ static int16_t posToDeg(long position) {
     return (int16_t) (position / 2l % 360l);
 }
 
+template <typename T> int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
+}
+
 static long correctPosition(const int16_t actual_position_raw, long &previous_position, long &overflow) {
     long delta_position = previous_position - actual_position_raw + overflow*USHRT_MAX;
 
@@ -38,8 +42,10 @@ Driver::Driver(const std::string& ns)
     motor_control_parameters.max_velocity        = 1.0;
     motor_control_parameters.min_object_distance = 0.10;
 
-    motor_control_parameters.wheel_base          = 0.3;
-    motor_control_parameters.wheel_radius        = 0.03;
+    motor_control_parameters.chassis_width       = 0.3;
+    motor_control_parameters.chassis_length      = 0.3;
+
+    motor_control_parameters.wheel_radius        = 0.03; 
 
     motor_control_parameters.motor_states.header.frame_id = "base_link";
     motor_control_parameters.motor_states.name.push_back("front_right_wheel_suspension_joint");
@@ -59,11 +65,6 @@ Driver::Driver(const std::string& ns)
     motor_control_parameters.motor_states.effort.resize(14);
     motor_control_parameters.motor_states.position.resize(14);
     motor_control_parameters.motor_states.velocity.resize(14);
-
-    motor_control_parameters.control_input.layout.dim.push_back(std_msgs::MultiArrayDimension());
-    motor_control_parameters.control_input.layout.dim[0].size = 6;
-    motor_control_parameters.control_input.layout.dim[0].stride = 1;
-    motor_control_parameters.control_input.data.resize(6);
 }
 
 Driver::~Driver()
@@ -80,8 +81,9 @@ bool Driver::configure()
     camera_command_subscriber = nh.subscribe("camera/command", 10, &Driver::cameraCommandCallback, this);
     read_sensors_subscriber   = nh.subscribe("sensor_readings", 10, &Driver::readSensorsCallback,this);
 
-    motor_command_publisher = nh.advertise<std_msgs::Int16MultiArray>("motor_command", 1, true);
+    motor_command_publisher = nh.advertise<mocup_msgs::MotorCommand>("motor_command", 1, true);
     joint_state_publisher = nh.advertise<sensor_msgs::JointState>("joint_states",10,true);
+    odom_publisher = nh.advertise<nav_msgs::Odometry>("state", 10, true);
 
     reset();
 
@@ -95,12 +97,12 @@ void Driver::cleanup()
 void Driver::reset()
 {
     // reset motor control data
-    motor_control_parameters.control_input.data[0] = 0;
-    motor_control_parameters.control_input.data[1] = 0;
-    motor_control_parameters.control_input.data[2] = 0;
-    motor_control_parameters.control_input.data[3] = 0;
-    motor_control_parameters.control_input.data[4] = 0;
-    motor_control_parameters.control_input.data[5] = 0;
+    motor_control_parameters.control_input.speed_r = 0;
+    motor_control_parameters.control_input.steer_r = 0;
+    motor_control_parameters.control_input.speed_l = 0;
+    motor_control_parameters.control_input.steer_r = 0;
+    motor_control_parameters.control_input.cam_yaw = 0;
+    motor_control_parameters.control_input.cam_pit = 0;
     update();
 
     // reset sensor readings
@@ -152,10 +154,10 @@ void Driver::reset()
 
 void Driver::stop()
 {
-    motor_control_parameters.control_input.data[0] = 0;
-    motor_control_parameters.control_input.data[1] = 0;
-    motor_control_parameters.control_input.data[2] = 0;
-    motor_control_parameters.control_input.data[3] = 0;
+    motor_control_parameters.control_input.speed_r = 0;
+    motor_control_parameters.control_input.steer_r = 0;
+    motor_control_parameters.control_input.speed_l = 0;
+    motor_control_parameters.control_input.steer_r = 0;
 
     update();
 }
@@ -169,23 +171,51 @@ void Driver::motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg)
 {
     float cmd_vel = limitVelocity(cmd_msg.speed);
 
-    // Velocity [m/s] to PWM (max velocity = 255 pwm)
-    int16_t pwm = floatToInt(cmd_vel);
-
     // update desired motor velocity/position based on control mode
-    if(!strcmp(cmd_msg.mode.c_str(), "ackermann")) {
-        int16_t angle = roundRadToDeg(cmd_msg.steerAngleFront);
-        motor_control_parameters.control_input.data[0] = pwm;
-        motor_control_parameters.control_input.data[1] = angle;
-        motor_control_parameters.control_input.data[2] = pwm;
-        motor_control_parameters.control_input.data[3] = angle;
+    if(!strcmp(cmd_msg.mode.c_str(), "continious")) {
+        double alpha    = (double)cmd_msg.steerAngleFront;
+        double tan_alpha = tan(alpha);
+        double b = motor_control_parameters.chassis_width;
+        double l = motor_control_parameters.chassis_length;
+
+        int16_t steer_l = roundRadToDeg(atan2(l-b*tan_alpha,l*tan_alpha));
+        int16_t steer_r = roundRadToDeg(atan2(l+b*tan_alpha,l*tan_alpha));
+        // steer_motor_position = 2*steer_angle
+        motor_control_parameters.control_input.steer_r = 2*steer_r;
+        motor_control_parameters.control_input.steer_l = 2*steer_l;
+
+        double speed_l = cmd_vel*(1-b*tan_alpha/l);
+        double speed_r = cmd_vel*(1+b*tan_alpha/l);
+
+        // limit wheel speeds for small radius
+        if(speed_l > motor_control_parameters.max_velocity) {
+            speed_l = motor_control_parameters.max_velocity;
+            speed_r = speed_l*(l+b*tan_alpha)/(l-b*tan_alpha);
+        } else if(speed_l < -motor_control_parameters.max_velocity) {
+            speed_l = -motor_control_parameters.max_velocity;
+            speed_r = speed_l*(l+b*tan_alpha)/(l-b*tan_alpha);
+        } else if(speed_r > motor_control_parameters.max_velocity) {
+            speed_r = motor_control_parameters.max_velocity;
+            speed_l = speed_r*(l-b*tan_alpha)/(l+b*tan_alpha);
+        } else if(speed_r < -motor_control_parameters.max_velocity) {
+            speed_r = -motor_control_parameters.max_velocity;
+            speed_l = speed_r*(l-b*tan_alpha)/(l+b*tan_alpha);
+        }
+
+        // Velocity [m/s] to PWM (max velocity = 255 pwm)
+        int16_t pwm_l = floatToInt(speed_l);
+        int16_t pwm_r = floatToInt(speed_r);
+        motor_control_parameters.control_input.speed_r = pwm_r;
+        motor_control_parameters.control_input.speed_l = pwm_l;
     }
     if(!strcmp(cmd_msg.mode.c_str(), "point_turn")) {
-        // Steer wheels to 45deg
-        motor_control_parameters.control_input.data[0] = pwm;
-        motor_control_parameters.control_input.data[1] = 90; //fix arduino_driver scale factor
-        motor_control_parameters.control_input.data[2] = -pwm;
-        motor_control_parameters.control_input.data[3] = -90; //fix arduino_driver scale factor
+        int16_t pwm = floatToInt(cmd_vel);
+
+        // Steer wheels to 45deg (=> pos 90)
+        motor_control_parameters.control_input.speed_r = pwm;
+        motor_control_parameters.control_input.steer_r = 2*45;
+        motor_control_parameters.control_input.speed_l = -pwm;
+        motor_control_parameters.control_input.steer_l = -2*45;
     }
 
     update();
@@ -196,56 +226,57 @@ void Driver::cameraCommandCallback(const geometry_msgs::QuaternionStamped& cmd_m
     double angles[3];
     quaternion2angles(cmd_msg.quaternion, angles);
 
-    motor_control_parameters.control_input.data[4] = roundRadToDeg(angles[0]);
-    motor_control_parameters.control_input.data[5] = roundRadToDeg(angles[1]);
+    // cam_motor_position = 2*cam_angle
+    motor_control_parameters.control_input.cam_yaw = 2*roundRadToDeg(angles[0]);
+    motor_control_parameters.control_input.cam_pit = 2*roundRadToDeg(angles[1]);
 
     update();
 }
 
-void Driver::readSensorsCallback(const std_msgs::Int16MultiArray &sensor_msg) {
+void Driver::readSensorsCallback(const mocup_msgs::RawSensors &sensor_msg) {
 
-    if(sensor_msg.data.size() == 10) {
-        actual_readings.stamp = ros::Time::now();
+    actual_readings.stamp = ros::Time::now();
 
-        actual_readings.motor.position.right_wheel_joint            = correctPosition(sensor_msg.data[0],previous_readings.motor.position.right_wheel_joint,previous_readings.motor.overflow.right_wheel_joint);
-        actual_readings.motor.position.left_wheel_joint             = correctPosition(sensor_msg.data[2],previous_readings.motor.position.left_wheel_joint,previous_readings.motor.overflow.left_wheel_joint);
-        actual_readings.motor.position.right_suspension_wheel_joint = correctPosition(sensor_msg.data[1],previous_readings.motor.position.right_suspension_wheel_joint,previous_readings.motor.overflow.right_suspension_wheel_joint);
-        actual_readings.motor.position.left_suspension_wheel_joint  = correctPosition(sensor_msg.data[3],previous_readings.motor.position.left_suspension_wheel_joint,previous_readings.motor.overflow.left_suspension_wheel_joint);
-        actual_readings.motor.position.camera_pan                   = correctPosition(sensor_msg.data[4],previous_readings.motor.position.camera_pan,previous_readings.motor.overflow.camera_pan);
-        actual_readings.motor.position.camera_tilt                  = correctPosition(sensor_msg.data[5],previous_readings.motor.position.camera_tilt,previous_readings.motor.overflow.camera_tilt);
+    actual_readings.motor.position.right_wheel_joint            = correctPosition(sensor_msg.wheel_r,previous_readings.motor.position.right_wheel_joint,previous_readings.motor.overflow.right_wheel_joint);
+    actual_readings.motor.position.left_wheel_joint             = correctPosition(sensor_msg.wheel_l,previous_readings.motor.position.left_wheel_joint,previous_readings.motor.overflow.left_wheel_joint);
+    actual_readings.motor.position.right_suspension_wheel_joint = correctPosition(sensor_msg.steer_r,previous_readings.motor.position.right_suspension_wheel_joint,previous_readings.motor.overflow.right_suspension_wheel_joint)/36;
+    actual_readings.motor.position.left_suspension_wheel_joint  = correctPosition(sensor_msg.steer_l,previous_readings.motor.position.left_suspension_wheel_joint,previous_readings.motor.overflow.left_suspension_wheel_joint)/36;
+    actual_readings.motor.position.camera_pan                   = correctPosition(sensor_msg.cam_yaw,previous_readings.motor.position.camera_pan,previous_readings.motor.overflow.camera_pan);
+    actual_readings.motor.position.camera_tilt                  = correctPosition(sensor_msg.cam_pit,previous_readings.motor.position.camera_tilt,previous_readings.motor.overflow.camera_tilt);
 
-        actual_readings.motor.angle.right_wheel_joint              = degToRad(posToDeg(actual_readings.motor.position.right_wheel_joint));
-        actual_readings.motor.angle.left_wheel_joint               = degToRad(posToDeg(actual_readings.motor.position.left_wheel_joint));
-        actual_readings.motor.angle.right_suspension_wheel_joint   = degToRad(posToDeg(actual_readings.motor.position.right_suspension_wheel_joint));
-        actual_readings.motor.angle.left_suspension_wheel_joint    = degToRad(posToDeg(actual_readings.motor.position.left_suspension_wheel_joint));
-        actual_readings.motor.angle.camera_pan                     = degToRad(posToDeg(actual_readings.motor.position.camera_pan));
-        actual_readings.motor.angle.camera_tilt                    = degToRad(posToDeg(actual_readings.motor.position.camera_tilt));
+    actual_readings.motor.angle.right_wheel_joint               = degToRad(posToDeg(actual_readings.motor.position.right_wheel_joint));
+    actual_readings.motor.angle.left_wheel_joint                = degToRad(posToDeg(actual_readings.motor.position.left_wheel_joint));
+    actual_readings.motor.angle.right_suspension_wheel_joint    = degToRad(posToDeg(actual_readings.motor.position.right_suspension_wheel_joint));
+    actual_readings.motor.angle.left_suspension_wheel_joint     = degToRad(posToDeg(actual_readings.motor.position.left_suspension_wheel_joint));
+    actual_readings.motor.angle.camera_pan                      = degToRad(posToDeg(actual_readings.motor.position.camera_pan));
+    actual_readings.motor.angle.camera_tilt                     = degToRad(posToDeg(actual_readings.motor.position.camera_tilt));
 
-        actual_readings.ultrasonic.range_fl = (centimeterToMeter(sensor_msg.data[6]) != 0.0f) ? centimeterToMeter(sensor_msg.data[6]) : NO_OBSTICAL;
-        actual_readings.ultrasonic.range_fr = (centimeterToMeter(sensor_msg.data[7]) != 0.0f) ? centimeterToMeter(sensor_msg.data[7]) : NO_OBSTICAL;
-        actual_readings.ultrasonic.range_rl = (centimeterToMeter(sensor_msg.data[8]) != 0.0f) ? centimeterToMeter(sensor_msg.data[6]) : NO_OBSTICAL;
-        actual_readings.ultrasonic.range_rr = (centimeterToMeter(sensor_msg.data[9]) != 0.0f) ? centimeterToMeter(sensor_msg.data[9]) : NO_OBSTICAL;
+    actual_readings.ultrasonic.range_fl = (centimeterToMeter(sensor_msg.us_fl) != 0.0f) ? centimeterToMeter(sensor_msg.us_fl) : NO_OBSTICAL;
+    actual_readings.ultrasonic.range_fr = (centimeterToMeter(sensor_msg.us_fr) != 0.0f) ? centimeterToMeter(sensor_msg.us_fr) : NO_OBSTICAL;
+    actual_readings.ultrasonic.range_rl = (centimeterToMeter(sensor_msg.us_rl) != 0.0f) ? centimeterToMeter(sensor_msg.us_rl) : NO_OBSTICAL;
+    actual_readings.ultrasonic.range_rr = (centimeterToMeter(sensor_msg.us_rr) != 0.0f) ? centimeterToMeter(sensor_msg.us_rl) : NO_OBSTICAL;
 
-        // publish joint states
-        publishJointStates();
+    // publish joint states
+    publishJointStates();
 
-        // publish odometry
-        publishOdometry();
+    // publish odometry
+    publishOdometry();
 
-        // safe sensor readings
-        previous_readings = actual_readings;
-    }
+    // safe sensor readings
+    previous_readings = actual_readings;
+
 }
 
 void Driver::publishOdometry()
 {
     double b, r;
-    double alpha_l, alpha_r, yaw;
+    double alpha_l, alpha_r;
+    double x, y, yaw;
     double phi_l, phi_r;
     double s;
 
     // Calculate vehicle geometry
-    b = motor_control_parameters.wheel_base / 2.0;
+    b = motor_control_parameters.chassis_width / 2.0;
     r = motor_control_parameters.wheel_radius;
 
     alpha_r = degToRad(posToDeg(actual_readings.motor.position.right_wheel_joint - previous_readings.motor.position.right_wheel_joint));
@@ -257,28 +288,61 @@ void Driver::publishOdometry()
     yaw = ((alpha_l * sin(phi_l) + alpha_r * sin(phi_r))* r) / (2.0 * b );
 
     s = r * (alpha_l + alpha_r)/2;
+    x = s * cos(pose.yaw);
+    y = s * sin(pose.yaw);
+
+    // Compute odemtric velocities
+    double dt = actual_readings.stamp.toSec() - previous_readings.stamp.toSec();
+
+    velocity.x = x / dt;
+    velocity.y = y / dt;
+    velocity.yaw = yaw / dt;
 
     // Compute odometric pose
     pose.yaw += yaw;
-    pose.x   += s * cos(pose.yaw);
-    pose.y   += s * sin(pose.yaw);
+    pose.x   += x;
+    pose.y   += y;
 
     geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(pose.yaw);
 
     // Publish tf
     odom_trans.header.stamp    = actual_readings.stamp;
-    odom_trans.header.frame_id = "map";
-    odom_trans.child_frame_id  = "base_link";
+    odom_trans.header.frame_id = "map";             // todo: magic string
+    odom_trans.child_frame_id  = "base_link";       // todo: magic string
 
     odom_trans.transform.translation.x = pose.x;
     odom_trans.transform.translation.y = pose.y;
-    odom_trans.transform.translation.z = 0.1;
+    odom_trans.transform.translation.z = 0.1;       // todo: magic number
     odom_trans.transform.rotation = odom_quat;
 
     odom_broadcaster.sendTransform(odom_trans);
 
     // Publish Odom
-    //http://wiki.ros.org/navigation/Tutorials/RobotSetup/Odom
+    odom.header.stamp = actual_readings.stamp;
+    odom.header.frame_id = "map";                   // todo: magic string
+
+    //set the position
+    odom.pose.pose.position.x = pose.x;
+    odom.pose.pose.position.y = pose.y;
+    odom.pose.pose.position.z = 0.1;                // todo: magic number
+    odom.pose.pose.orientation = odom_quat;
+
+    //set the velocity
+    odom.child_frame_id = "base_link";              // todo: magic string
+    odom.twist.twist.linear.x = velocity.x;
+    odom.twist.twist.linear.y = velocity.y;
+    odom.twist.twist.angular.z = velocity.yaw;
+
+    //publish the message
+    odom_publisher.publish(odom);
+}
+
+Driver::NavTuple Driver::vehicleGeometry(const Sensors &readings) {
+    NavTuple tuple;
+
+
+
+    return tuple;
 }
 
 void Driver::publishJointStates()
@@ -308,15 +372,15 @@ void Driver::publishJointStates()
     joint_state_publisher.publish(motor_control_parameters.motor_states);
 }
 
-float Driver::limitVelocity(float value) {
+float Driver::limitVelocity(float value) { //todo check if cases
     float velocity = value;
     if (value > 0.0) {
         if (value > motor_control_parameters.max_velocity) velocity = motor_control_parameters.max_velocity;
         if (value < motor_control_parameters.min_velocity) velocity = motor_control_parameters.min_velocity;
-       if (previous_readings.ultrasonic.range_fl < motor_control_parameters.min_object_distance || previous_readings.ultrasonic.range_fr < motor_control_parameters.min_object_distance) {
-           velocity = 0.0f;
-           ROS_WARN("OBSTACLE in FRONT, STOPPING MOTORS distance to obstacle: %f", motor_control_parameters.min_object_distance);
-       }
+        if (previous_readings.ultrasonic.range_fl < motor_control_parameters.min_object_distance || previous_readings.ultrasonic.range_fr < motor_control_parameters.min_object_distance) {
+            velocity = 0.0f;
+            ROS_WARN("OBSTACLE in FRONT, STOPPING MOTORS distance to obstacle: %f", motor_control_parameters.min_object_distance);
+        }
     } else if (value < 0.0) {
         if (value < -motor_control_parameters.max_velocity) velocity = -motor_control_parameters.max_velocity;
         if (value > -motor_control_parameters.min_velocity) velocity = -motor_control_parameters.min_velocity;

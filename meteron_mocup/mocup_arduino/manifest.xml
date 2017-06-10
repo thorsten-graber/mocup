@@ -9,6 +9,7 @@
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/mocup_arduino</url>
   <depend package="rosserial_python" />
+  <depend package="mocup_msgs" />
 
 </package>
 
