@@ -406,14 +406,14 @@ float Driver::limitVelocity(float value) { //todo check if cases
         if (value < motor_control_parameters.min_velocity) velocity = motor_control_parameters.min_velocity;
         if (previous_readings.ultrasonic.range_fl < motor_control_parameters.min_object_distance || previous_readings.ultrasonic.range_fr < motor_control_parameters.min_object_distance) {
             velocity = 0.0f;
-            ROS_WARN("OBSTACLE in FRONT, STOPPING MOTORS distance to obstacle: %f", motor_control_parameters.min_object_distance);
+            ROS_WARN("OBSTACLE in the FRONT, STOPPING MOTORS distance to obstacle: %f", motor_control_parameters.min_object_distance);
         }
     } else if (value < 0.0) {
         if (value < -motor_control_parameters.max_velocity) velocity = -motor_control_parameters.max_velocity;
         if (value > -motor_control_parameters.min_velocity) velocity = -motor_control_parameters.min_velocity;
         if (previous_readings.ultrasonic.range_rl < motor_control_parameters.min_object_distance || previous_readings.ultrasonic.range_rr < motor_control_parameters.min_object_distance) {
             velocity = 0.0f;
-            ROS_WARN("OBSTACLE in FRONT, STOPPING MOTORS distance to obstacle: %f", motor_control_parameters.min_object_distance);
+            ROS_WARN("OBSTACLE in the BACK, STOPPING MOTORS distance to obstacle: %f", motor_control_parameters.min_object_distance);
         }
     }
     return velocity;

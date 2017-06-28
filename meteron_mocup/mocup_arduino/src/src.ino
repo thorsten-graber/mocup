@@ -37,7 +37,7 @@ void motorCommandCallback(const mocup_msgs::MotorCommand& cmd_msg)
     m3.setSpeed(-cmd_msg.speed_l);
     m4.goToAngle(cmd_msg.steer_l);
     m5.goToAngle(-cmd_msg.cam_yaw);
-    m6.goToAngle(cmd_msg.cam_pit);
+    m6.goToAngle(-cmd_msg.cam_pit);
 
     m1.update();
     m2.update();
@@ -58,7 +58,7 @@ void publishSensorReadings()
     sensor_readings.wheel_l = -m3.getPosition();
     sensor_readings.steer_l = m4.getAngle();
     sensor_readings.cam_yaw = -m5.getAngle();
-    sensor_readings.cam_pit = m6.getAngle();
+    sensor_readings.cam_pit = -m6.getAngle();
 
     sensor_publisher.publish(&sensor_readings);
 }
@@ -130,7 +130,7 @@ void setup()
     TCNT5L=0x00;
     ICR5H=0x00;
     ICR5L=0x00;
-    OCR5AH=0x09;
+    OCR5AH=0x13;
     OCR5AL=0x00;
     OCR5BH=0x00;
     OCR5BL=0x00;
