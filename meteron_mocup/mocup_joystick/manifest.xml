@@ -13,5 +13,4 @@
   <depend package="sensor_msgs"/>
   <depend package="mocup_msgs"/>
   <depend package="geometry_msgs"/>
-  <depend package="joystick_driver"/>
 </package>
