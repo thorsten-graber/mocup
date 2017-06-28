@@ -13,6 +13,7 @@
   <depend package="mocup_arduino" />
   <depend package="mocup_driver" />
   <depend package="mocup_controller" />
+  <depend package="mocup_camera" />
 </package>
 
 
