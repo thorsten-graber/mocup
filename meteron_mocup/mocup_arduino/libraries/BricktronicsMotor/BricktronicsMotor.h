@@ -80,6 +80,7 @@ class BricktronicsMotor
             _dirPin(dirPin),
             _pwmPin(pwmPin),
             _rawSpeed(0),
+            _encoderOld(0),
             _reversed(false),
             _pid(&_pidInput, &_pidOutput, &_pidSetpoint, BRICKTRONICS_MOTOR_PID_KP, BRICKTRONICS_MOTOR_PID_KI, BRICKTRONICS_MOTOR_PID_KD, DIRECT),
             _pidKp(BRICKTRONICS_MOTOR_PID_KP),
@@ -104,6 +105,7 @@ class BricktronicsMotor
             _dirPin(settings.dirPin),
             _pwmPin(settings.pwmPin),
             _rawSpeed(0),
+            _encoderOld(0),
             _reversed(settings.reversedMotorDrive), // See note below about why this is set to true for Bricktronics Shield
             _pid(&_pidInput, &_pidOutput, &_pidSetpoint, BRICKTRONICS_MOTOR_PID_KP, BRICKTRONICS_MOTOR_PID_KI, BRICKTRONICS_MOTOR_PID_KD, DIRECT),
             _pidKp(BRICKTRONICS_MOTOR_PID_KP),
@@ -214,8 +216,13 @@ class BricktronicsMotor
             {
                 case BRICKTRONICS_MOTOR_MODE_PID_POSITION:
                     _pidInput = _encoder.read();
+                    if(fabs(_pidInput - _pidSetpoint) < 25) {
+                        _rawSetSpeed(0);
+                        break;
+                    }
                     _pid.Compute();
                     _rawSetSpeed(_pidOutput);
+
                     /*
                     Serial.print("_pidOutput: ");
                     Serial.print(_pidOutput);
@@ -225,7 +232,11 @@ class BricktronicsMotor
                     break;
 
                 case BRICKTRONICS_MOTOR_MODE_PID_SPEED:
-                    // TODO create implementation of speed control
+                    _encoderOld = (_encoderOld == 0) ? _encoderOld = _encoder.read() : _encoderOld;
+                    _pidInput = _encoder.read() - _encoderOld;  //todo: detect and catch overflows
+                    _pid.Compute();
+                    _encoderOld = _encoder.read();
+                    _rawSetSpeed(_pidOutput);
                     break;
 
                 default:
@@ -313,10 +324,10 @@ class BricktronicsMotor
         // Raw, uncontrolled speed settings
         // There is no monitoring or control of the speed here,
         // just set a fixed drive strength between -255 and +255 (0 = brake).
-        void setFixedDrive(int16_t s)
+        void setFixedDrive(int16_t speed)
         {
             _mode = BRICKTRONICS_MOTOR_MODE_FIXED_DRIVE;
-            _rawSpeed = s;
+            _rawSpeed = speed;
             _rawSetSpeed(_rawSpeed);
         }
 
@@ -326,6 +337,11 @@ class BricktronicsMotor
             return _rawSpeed;
         }
 
+        // Speed control functions
+        void setSpeed(int16_t speed) {
+            _mode = BRICKTRONICS_MOTOR_MODE_PID_SPEED;
+            _pidSetpoint = speed;
+        }
 
         // Position control functions
         void goToPosition(int32_t position)
@@ -448,6 +464,7 @@ class BricktronicsMotor
 
         // Tracks the position of the motor
         Encoder _encoder;
+        int32_t _encoderOld;
 
         // Check out the comments above for setAngleOutputMultiplier()
         int8_t _angleMultiplier;
@@ -492,16 +509,17 @@ class BricktronicsMotor
         // position of the motor. Used in the goToAngle* functions.
         int32_t _getDestPositionFromAngle(int32_t angle)
         {
-            int16_t delta = (angle % 360) - getAngle();
+//            int16_t delta = (angle % 360) - getAngle();
+            int16_t delta = angle - getAngle();
 
-            while( delta > 180 )
-            {
-                delta -= 360;
-            }
-            while( delta < -180 )
-            {
-                delta += 360;
-            }
+//            while( delta > 180 )
+//            {
+//                delta -= 360;
+//            }
+//            while( delta < -180 )
+//            {
+//                delta += 360;
+//            }
 
             // Now, delta is between -180 and +180
             return( getPosition() + ( delta * _angleMultiplier ) );

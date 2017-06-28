@@ -77,7 +77,7 @@ public:
 
 protected:
     virtual bool configure();
-    virtual void update();
+    virtual void update(const ros::TimerEvent&);
     virtual void reset();
     virtual void stop();
     virtual void cleanup();
@@ -96,6 +96,7 @@ protected:
 
 private:
     ros::NodeHandle nh;
+    ros::Timer timer;
 
     MotorControlParameters motor_control_parameters;
     Sensors actual_readings;
@@ -110,10 +111,14 @@ private:
     ros::Publisher motor_command_publisher;
     ros::Publisher joint_state_publisher;
     ros::Publisher odom_publisher;
+    ros::Publisher debug_publisher;
 
     ros::Subscriber motion_command_subscriber;
     ros::Subscriber camera_command_subscriber;
     ros::Subscriber read_sensors_subscriber;
+
+    //double steer_r, steer_l, steer_r_old, steer_l_old;
+    double alpha_old;
 };
 
 #endif // MOCUP_DRIVER_H

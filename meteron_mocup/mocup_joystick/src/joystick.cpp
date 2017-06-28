@@ -55,7 +55,7 @@ namespace Mocup {
       motionCommand.brake = joystick->buttons[button_brake-1];
     }
 
-    motionCommand.mode  = "contineous";
+    motionCommand.mode  = "continuous";
     if (button_mode > 0 && (size_t) button_mode <= joystick->buttons.size()) {
       if (joystick->buttons[button_mode-1]) {
           motionCommand.mode  = "point_turn";
@@ -139,9 +139,9 @@ int main(int argc, char **argv) {
 
   ros::Rate rate(50.0);
   while(ros::ok()) {
-    if (motionCommand.steerAngleFront != 0.0 ||
-        motionCommand.steerAngleRear != 0.0 ||
-        motionCommand.speed != 0.0)
+//    if (motionCommand.steerAngleFront != 0.0 ||
+//        motionCommand.steerAngleRear != 0.0 ||
+//        motionCommand.speed != 0.0)
       motionCommandOutput.publish(motionCommand);
     moveCamera(rate.expectedCycleTime().toSec());
     ros::spinOnce();
