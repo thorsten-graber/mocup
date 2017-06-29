@@ -14,6 +14,7 @@
   <depend package="mocup_driver" />
   <depend package="mocup_controller" />
   <depend package="mocup_camera" />
+  <depend package="robot_state_publisher" />
 </package>
 
 
