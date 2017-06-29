@@ -8,7 +8,7 @@
   #include <BricktronicsMotor.h>
   #include <BricktronicsUltrasonic.h>
   
-  #define BAUD 36800 // 36kbps
+  #define BAUD 57600 // 57kbps
   #define UPDATE_INTERVAL  20  // 1/update rate in ms -> 20ms = 50Hz
   
   // Select the desired motor port (MOTOR_1 through MOTOR_6) in the constructor below.
