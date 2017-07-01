@@ -28,12 +28,6 @@ public:
     } MotorControlParameters;
 
     typedef struct {
-        double x;
-        double y;
-        double yaw;
-    } NavTuple;
-
-    typedef struct {
         float range_fl;
         float range_fr;
         float range_rl;
@@ -92,8 +86,6 @@ protected:
     virtual void publishOdometry();
     virtual void publishJointStates();
 
-    virtual NavTuple vehicleGeometry(const Sensors &readings);
-
 private:
     ros::NodeHandle nh;
     ros::Timer timer;
@@ -102,7 +94,6 @@ private:
     Sensors actual_readings;
     Sensors previous_readings;
 
-    NavTuple pose, velocity;
     nav_msgs::Odometry odom;
 
     geometry_msgs::TransformStamped odom_trans;

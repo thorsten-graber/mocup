@@ -158,7 +158,13 @@ void Driver::reset()
     previous_readings.ultrasonic.range_rr = NO_OBSTICAL;
 
     // todo: reset odometric pose and tf
-
+    odom.pose.pose.position.x    = 0;
+    odom.pose.pose.position.y    = 0;
+    odom.pose.pose.position.z    = 0;
+    odom.pose.pose.orientation.w = 1;
+    odom.pose.pose.orientation.x = 0;
+    odom.pose.pose.orientation.y = 0;
+    odom.pose.pose.orientation.z = 0;
 }
 
 void Driver::stop()
@@ -279,7 +285,7 @@ void Driver::publishOdometry()
     double phi_l, phi_r;
     double s;
 
-    // Calculate vehicle geometry
+    // vehicle geometry
     b = motor_control_parameters.chassis_width / 2.0;
     r = motor_control_parameters.wheel_radius;
 
@@ -288,69 +294,51 @@ void Driver::publishOdometry()
     phi_r   = actual_readings.motor.angle.right_suspension_wheel_joint;
     phi_l   = actual_readings.motor.angle.left_suspension_wheel_joint;
 
-    // Calculate angular velocity for ICC which is same as angular velocity of vehicle
+    // Compute angular velocity for ICC which is same as angular velocity of vehicle
     yaw = ((alpha_l * sin(phi_l) + alpha_r * sin(phi_r))* r) / (2.0 * b );
 
+    // Compute translation using previous yaw angle using last pose
+    double euler[3];
+    quaternion2euler(odom.pose.pose.orientation, euler);
     s = r * (alpha_l + alpha_r)/2;
-    x = s * cos(pose.yaw);
-    y = s * sin(pose.yaw);
+    x = s * cos(euler[0]);
+    y = s * sin(euler[0]);
 
-    // Compute odemtric velocities
+    // Compute delta t
     double dt = actual_readings.stamp.toSec() - previous_readings.stamp.toSec();
 
-    geometry_msgs::Twist twist;
-    twist.linear.x = alpha_r;
-    twist.linear.y = alpha_l;
+    // Publish Odom
+    // set header
+    odom.header.stamp    = actual_readings.stamp;
+    odom.header.frame_id = "map";                   // todo: magic string
 
-    velocity.x = x / dt;
-    velocity.y = y / dt;
-    velocity.yaw = yaw / dt;
+    //Compute velocity
+    odom.child_frame_id        = "base_link";       // todo: magic string
+    odom.twist.twist.linear.x  = x / dt;
+    odom.twist.twist.linear.y  = y / dt;
+    odom.twist.twist.angular.z = yaw / dt;
 
     // Compute odometric pose
-    pose.yaw += yaw;
-    pose.x   += x;
-    pose.y   += y;
+    geometry_msgs::Quaternion yaw_quat = tf::createQuaternionMsgFromYaw(yaw);
+    odom.pose.pose.position.x  += x;
+    odom.pose.pose.position.y  += y;
+    odom.pose.pose.position.z  = 0.1;                // todo: magic number
+    odom.pose.pose.orientation = odom.pose.pose.orientation*yaw_quat;
 
-    geometry_msgs::Quaternion odom_quat = tf::createQuaternionMsgFromYaw(pose.yaw);
+    //publish message
+    odom_publisher.publish(odom);
 
     // Publish tf
     odom_trans.header.stamp    = actual_readings.stamp;
     odom_trans.header.frame_id = "map";             // todo: magic string
     odom_trans.child_frame_id  = "base_link";       // todo: magic string
 
-    odom_trans.transform.translation.x = pose.x;
-    odom_trans.transform.translation.y = pose.y;
-    odom_trans.transform.translation.z = 0.1;       // todo: magic number
-    odom_trans.transform.rotation = odom_quat;
+    odom_trans.transform.translation.x = odom.pose.pose.position.x;
+    odom_trans.transform.translation.y = odom.pose.pose.position.y;
+    odom_trans.transform.translation.z = odom.pose.pose.position.z;
+    odom_trans.transform.rotation      = odom.pose.pose.orientation;
 
     odom_broadcaster.sendTransform(odom_trans);
-
-    // Publish Odom
-    odom.header.stamp = actual_readings.stamp;
-    odom.header.frame_id = "map";                   // todo: magic string
-
-    //set the position
-    odom.pose.pose.position.x = pose.x;
-    odom.pose.pose.position.y = pose.y;
-    odom.pose.pose.position.z = 0.1;                // todo: magic number
-    odom.pose.pose.orientation = odom_quat;
-
-    //set the velocity
-    odom.child_frame_id = "base_link";              // todo: magic string
-    odom.twist.twist.linear.x = velocity.x;
-    odom.twist.twist.linear.y = velocity.y;
-    odom.twist.twist.angular.z = velocity.yaw;
-
-    //publish the message
-    odom_publisher.publish(odom);
-}
-
-Driver::NavTuple Driver::vehicleGeometry(const Sensors &readings) {
-    NavTuple tuple;
-
-
-
-    return tuple;
 }
 
 void Driver::publishJointStates()
