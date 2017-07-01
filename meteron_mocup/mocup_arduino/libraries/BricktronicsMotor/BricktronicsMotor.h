@@ -216,13 +216,8 @@ class BricktronicsMotor
             {
                 case BRICKTRONICS_MOTOR_MODE_PID_POSITION:
                     _pidInput = _encoder.read();
-                    if(fabs(_pidInput - _pidSetpoint) < 25) {
-                        _rawSetSpeed(0);
-                        break;
-                    }
                     _pid.Compute();
                     _rawSetSpeed(_pidOutput);
-
                     /*
                     Serial.print("_pidOutput: ");
                     Serial.print(_pidOutput);
@@ -237,6 +232,12 @@ class BricktronicsMotor
                     _pid.Compute();
                     _encoderOld = _encoder.read();
                     _rawSetSpeed(_pidOutput);
+                    /*
+                    Serial.print("_pidOutput: ");
+                    Serial.print(_pidOutput);
+                    Serial.print(", pos: ");
+                    Serial.println(_pidInput);
+                    */
                     break;
 
                 default:

@@ -4,7 +4,6 @@
 #include "quaternions.h"
 
 #define NO_OBSTICAL 2.55f
-//#define STEERING_TAU 1 //R*C
 
 static double roundRadToDeg(double rad) {
     return round (rad * 180.0 / M_PI);
@@ -35,10 +34,6 @@ static long correctPosition(const int16_t actual_position_raw, long &previous_po
 static float centimeterToMeter(int centimeter) {
     return (float) (centimeter / 100.0f);
 }
-
-//static double firstOrderLowPassFilter(double x_n,double y_old,double c) {
-//    return (1-c)*x_n + c*y_old;
-//}
 
 static double maxDeltaFilter(double y, double x, double c) {
     double delta = y-x;
@@ -98,8 +93,6 @@ bool Driver::configure()
 
     timer = nh.createTimer(ros::Duration(0.02),&Driver::update,this);
 
-    debug_publisher = nh.advertise<geometry_msgs::Twist>("debug",10,true);
-
     reset();
 
     return true;
@@ -119,8 +112,6 @@ void Driver::reset()
     motor_control_parameters.control_input.cam_yaw = 0;
     motor_control_parameters.control_input.cam_pit = 0;
 
-//    steer_l_old = 0;
-//    steer_r_old = 0;
     alpha_old = 0;
 
     // reset sensor readings
@@ -180,14 +171,6 @@ void Driver::stop()
 
 void Driver::update(const ros::TimerEvent&)
 {
-    // low pass filter to tackle low dynamic due to the gears
-    //steer_r = firstOrderLowPassFilter(steer_r,steer_r_old,exp(-0.02/STEERING_TAU));
-    //steer_l = firstOrderLowPassFilter(steer_l,steer_l_old,exp(-0.02/STEERING_TAU));
-    //steer_r_old = steer_r;
-    //steer_l_old = steer_l;
-    //motor_control_parameters.control_input.steer_r = roundRadToDeg(steer_r);
-    //motor_control_parameters.control_input.steer_l = roundRadToDeg(steer_l);
-
     motor_command_publisher.publish(motor_control_parameters.control_input);
 }
 
@@ -318,8 +301,6 @@ void Driver::publishOdometry()
     geometry_msgs::Twist twist;
     twist.linear.x = alpha_r;
     twist.linear.y = alpha_l;
-
-    debug_publisher.publish(twist);
 
     velocity.x = x / dt;
     velocity.y = y / dt;

@@ -111,13 +111,11 @@ private:
     ros::Publisher motor_command_publisher;
     ros::Publisher joint_state_publisher;
     ros::Publisher odom_publisher;
-    ros::Publisher debug_publisher;
 
     ros::Subscriber motion_command_subscriber;
     ros::Subscriber camera_command_subscriber;
     ros::Subscriber read_sensors_subscriber;
 
-    //double steer_r, steer_l, steer_r_old, steer_l_old;
     double alpha_old;
 };
 
