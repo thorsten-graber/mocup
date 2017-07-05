@@ -72,13 +72,12 @@ void AllWheelSteeringPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf
     jointStateName = "joint_states";
     proportionalControllerGain = 8.0;
     derivativeControllerGain = 0.0;
-    wheelTrack = 0.24;
-    wheelBase = 0.30;
-    wheelRadius = 0.14;
+    wheelTrack = 0.30;
+    wheelBase = 0.305;
+    wheelRadius = 0.035;
     jointMaxTorque = 10.0;
     wheelMaxTorque = 10.0;
-    minRadius = 0.3;
-    maxVelX = 0.4;
+    maxVelX = 0.1;
 
     // load parameters
     if (_sdf->HasElement("robotNamespace")) robotNamespace = _sdf->Get<std::string>("robotNamespace");
@@ -89,22 +88,21 @@ void AllWheelSteeringPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf
     if (_sdf->HasElement("frontRightAxle")) wheels[FRONT_RIGHT].axleName = _sdf->Get<std::string>("frontRightAxle");
     if (_sdf->HasElement("middleLeftAxle")) wheels[MIDDLE_LEFT].axleName = _sdf->Get<std::string>("middleLeftAxle");
     if (_sdf->HasElement("middleRightAxle")) wheels[MIDDLE_RIGHT].axleName = _sdf->Get<std::string>("middleRightAxle");
-    if (_sdf->HasElement("rearLeftAxle")) wheels[REAR_RIGHT].axleName = _sdf->Get<std::string>("rearLeftAxle");
-    if (_sdf->HasElement("rearRightAxle")) wheels[REAR_LEFT].axleName = _sdf->Get<std::string>("rearRightAxle");
+    if (_sdf->HasElement("rearLeftAxle")) wheels[REAR_LEFT].axleName = _sdf->Get<std::string>("rearLeftAxle");
+    if (_sdf->HasElement("rearRightAxle")) wheels[REAR_RIGHT].axleName = _sdf->Get<std::string>("rearRightAxle");
     if (_sdf->HasElement("frontLeftJoint")) wheels[FRONT_LEFT].jointName = _sdf->Get<std::string>("frontLeftJoint");
     if (_sdf->HasElement("frontRightJoint")) wheels[FRONT_RIGHT].jointName = _sdf->Get<std::string>("frontRightJoint");
     if (_sdf->HasElement("middleLeftJoint")) wheels[MIDDLE_LEFT].jointName = _sdf->Get<std::string>("middleLeftJoint");
     if (_sdf->HasElement("middleRightJoint")) wheels[MIDDLE_RIGHT].jointName = _sdf->Get<std::string>("middleRightJoint");
-    if (_sdf->HasElement("rearLeftJoint")) wheels[REAR_RIGHT].jointName = _sdf->Get<std::string>("rearLeftJoint");
-    if (_sdf->HasElement("rearRightJoint")) wheels[REAR_LEFT].jointName = _sdf->Get<std::string>("rearRightJoint");
+    if (_sdf->HasElement("rearLeftJoint")) wheels[REAR_LEFT].jointName = _sdf->Get<std::string>("rearLeftJoint");
+    if (_sdf->HasElement("rearRightJoint")) wheels[REAR_RIGHT].jointName = _sdf->Get<std::string>("rearRightJoint");
     if (_sdf->HasElement("proportionalControllerGain")) proportionalControllerGain = _sdf->Get<double>("proportionalControllerGain");
     if (_sdf->HasElement("derivativeControllerGain")) derivativeControllerGain = _sdf->Get<double>("derivativeControllerGain");
     if (_sdf->HasElement("wheelTrack")) wheelTrack = _sdf->Get<double>("wheelTrack");
-    if (_sdf->HasElement("wheelBase")) wheelBase = _sdf->Get<double>("wheelBase");
+    if (_sdf->HasElement("wheelTrack")) wheelBase = _sdf->Get<double>("wheelBase");
     if (_sdf->HasElement("wheelRadius")) wheelRadius = _sdf->Get<double>("wheelRadius");
     if (_sdf->HasElement("jointMaxTorque")) jointMaxTorque = _sdf->Get<double>("jointMaxTorque");
     if (_sdf->HasElement("wheelMaxTorque")) wheelMaxTorque = _sdf->Get<double>("wheelMaxTorque");
-    if (_sdf->HasElement("minRadius")) minRadius = _sdf->Get<double>("minRadius");
     if (_sdf->HasElement("maxVelX")) maxVelX = _sdf->Get<double>("maxVelX");
 
     double controlRate = 0.0;
@@ -229,7 +227,7 @@ void AllWheelSteeringPlugin::Reset()
 void AllWheelSteeringPlugin::Update()
 {
     // TODO: Step should be in a parameter of this function
-    double a, b, r;
+    double l, b, r;
     double omega_fl, omega_fr, omega_ml, omega_mr, omega_rl, omega_rr, omega_phi;
     double phi_fl, phi_fr, phi_ml, phi_mr, phi_rl, phi_rr, R;
     double v;
@@ -237,8 +235,8 @@ void AllWheelSteeringPlugin::Update()
     // handle callbacks
     queue_.callAvailable();
 
-    a = wheelTrack / 2;
-    b = wheelBase / 2;
+    b = wheelTrack;
+    l = wheelBase;
     r = wheelRadius;
 
     common::Time stepTime;
@@ -250,7 +248,6 @@ void AllWheelSteeringPlugin::Update()
 
         prevUpdateTime = world->GetSimTime();
 
-        //TODO
         // odometry calculation
         omega_fl = wheels[FRONT_LEFT].axle->GetVelocity(0);
         omega_fr = wheels[FRONT_RIGHT].axle->GetVelocity(0);
@@ -279,12 +276,11 @@ void AllWheelSteeringPlugin::Update()
             // gzthrow("phi_rr: %f out of bounds" << phi_rr);
         }
 
-        R = (((b / tan(phi_fl)) + a) + ((b / tan(phi_fr)) - a) + ((b / tan(-phi_rl)) + a) + ((b / tan(-phi_rr)) - a)) / 4;
+        // Compute angular velocity for ICC which is same as angular velocity of vehicle
+        //omega_phi = (omega_fl * sin(phi_fl) * r / b); //+ omega_fr * sin(phi_fr) + omega_rl * sin(-phi_rl) + omega_rr * sin(-phi_rr)) * r / (4 * b);
+        omega_phi = ((omega_fl * sin(phi_fl) + omega_fr * sin(phi_fr)) * r) / b;
 
-        //Calculate angular velocity for ICC which is same as angular velocity of vehicle
-        omega_phi = (omega_fl * sin(phi_fl) * r / b); //+ omega_fr * sin(phi_fr) + omega_rl * sin(-phi_rl) + omega_rr * sin(-phi_rr)) * r / (4 * b); //omega Berechnung fuer linkes Vorderrad. Alle Raeder berechnen??
-
-        v = r * (omega_fl + omega_fr)/2; //fuer geradesaus fahrt
+        v = r * (omega_fl + omega_fr)/2;
 
         // Compute odometric pose
         odomPose[0] += v * stepTime.Double() * cos(odomPose[2]);
@@ -301,50 +297,45 @@ void AllWheelSteeringPlugin::Update()
         publish_joint_states();
     }
 
-    if (!cmd_.mode.compare("ackermann")) {
+    if (!cmd_.mode.compare("continuous")) {
         // calculate wheel speeds
-        wheels[FRONT_LEFT].wheelSpeed  = cmd_.speed;
-        wheels[FRONT_RIGHT].wheelSpeed = cmd_.speed;
-        wheels[MIDDLE_LEFT].wheelSpeed  = cmd_.speed;
-        wheels[MIDDLE_RIGHT].wheelSpeed = cmd_.speed;
-        wheels[REAR_LEFT].wheelSpeed   = cmd_.speed;
-        wheels[REAR_RIGHT].wheelSpeed  = cmd_.speed;
+        double tan_steer= tan(cmd_.steerAngleFront);
+        double speed_l = cmd_.speed*(1-b*tan_steer/l);
+        double speed_r = cmd_.speed*(1+b*tan_steer/l);
 
-        // get current steering angles
-        double current_phi_fl = wheels[FRONT_LEFT].joint->GetAngle(0).RADIAN();
-        double current_phi_fr = wheels[FRONT_RIGHT].joint->GetAngle(0).RADIAN();
-        double current_phi_ml = wheels[MIDDLE_LEFT].joint->GetAngle(0).RADIAN();
-        double current_phi_mr = wheels[MIDDLE_RIGHT].joint->GetAngle(0).RADIAN();
-        double current_phi_rl = wheels[REAR_LEFT].joint->GetAngle(0).RADIAN();
-        double current_phi_rr = wheels[REAR_RIGHT].joint->GetAngle(0).RADIAN();
-        double steerAngleFront = (current_phi_fl + current_phi_fr) / 2.0;
-        double steerAngleRear  = (current_phi_rl + current_phi_rr) / 2.0;
-
-        if (steerAngleRear != -steerAngleFront) {
-            // double omega = arctan((tan(steerAngleRear) - tan(steerAngleFront))/2.0); // drift angle
-            double rx = ((tan(steerAngleRear) - tan(steerAngleFront)) / (tan(steerAngleRear) + tan(steerAngleFront))) * b;
-            double ry = 2.0/(tan(steerAngleRear) + tan(steerAngleFront)) * b;
-            double r  = sqrt(rx*rx+ry*ry);
-
-            wheels[FRONT_LEFT].wheelSpeed   *= sqrt((rx - b)*(rx - b) + (ry - a)*(ry - a)) / r;
-            wheels[FRONT_RIGHT].wheelSpeed  *= sqrt((rx - b)*(rx - b) + (ry + a)*(ry + a)) / r;
-            //    wheels[MIDDLE_RIGHT].wheelSpeed *=
-            //    wheels[MIDDLE_RIGHT].wheelSpeed *=
-            wheels[REAR_LEFT].wheelSpeed    *= sqrt((rx + b)*(rx + b) + (ry - a)*(ry - a)) / r;
-            wheels[REAR_RIGHT].wheelSpeed   *= sqrt((rx + b)*(rx + b) + (ry + a)*(ry + a)) / r;
+        // limit wheel speeds for small radius
+        if(speed_l > maxVelX) {
+            speed_l = maxVelX;
+            speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+        } else if(speed_l < -maxVelX) {
+            speed_l = -maxVelX;
+            speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+        } else if(speed_r > maxVelX) {
+            speed_r = maxVelX;
+            speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
+        } else if(speed_r < -maxVelX) {
+            speed_r = -maxVelX;
+            speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
         }
 
+        ROS_INFO("cmd_vel: %f, speed_l: %f, speed_r: %f", cmd_.speed, speed_l, speed_r);
+
+        //wheels[FRONT_LEFT].wheelSpeed  = ;
+        //wheels[FRONT_RIGHT].wheelSpeed = ;
+        wheels[MIDDLE_LEFT].wheelSpeed   = speed_l / r;
+        wheels[MIDDLE_RIGHT].wheelSpeed  = speed_r / r;
+        //wheels[REAR_LEFT].wheelSpeed   = ;
+        //wheels[REAR_RIGHT].wheelSpeed  = ;
     }
 
     if (!cmd_.mode.compare("point_turn")) {
         // calculate wheel speeds
-        wheels[FRONT_LEFT].wheelSpeed  = -cmd_.speed;
-        wheels[FRONT_RIGHT].wheelSpeed = cmd_.speed;
-        wheels[MIDDLE_LEFT].wheelSpeed  = -cmd_.speed;
-        wheels[MIDDLE_RIGHT].wheelSpeed = cmd_.speed;
-        wheels[REAR_LEFT].wheelSpeed   = -cmd_.speed;
-        wheels[REAR_RIGHT].wheelSpeed  = cmd_.speed;
-
+        //wheels[FRONT_LEFT].wheelSpeed  = ;
+        //wheels[FRONT_RIGHT].wheelSpeed = ;
+        wheels[MIDDLE_LEFT].wheelSpeed   = -cmd_.speed / r;
+        wheels[MIDDLE_RIGHT].wheelSpeed  =  cmd_.speed / r;
+        //wheels[REAR_LEFT].wheelSpeed   = ;
+        //wheels[REAR_RIGHT].wheelSpeed  = ;
     }
 
     ROS_DEBUG_STREAM_NAMED("all_wheel_steering_plugin", "Wheel speeds:\n"
@@ -363,8 +354,6 @@ void AllWheelSteeringPlugin::Update()
                            << "rear left:  "    << wheels[REAR_LEFT].joint->GetChild()->GetWorldPose() << "\n"
                            << "rear right:  "   << wheels[REAR_RIGHT].joint->GetChild()->GetWorldPose());
 
-
-
     if (enableMotors)
     {
         wheels[FRONT_LEFT].joint->SetVelocity(0, wheels[FRONT_LEFT].jointSpeed);
@@ -381,21 +370,19 @@ void AllWheelSteeringPlugin::Update()
         wheels[REAR_LEFT].joint->SetMaxForce(0, jointMaxTorque);
         wheels[REAR_RIGHT].joint->SetMaxForce(0, jointMaxTorque);
 
+        //wheels[FRONT_LEFT].axle->SetVelocity(0, wheels[FRONT_LEFT].wheelSpeed);
+        //wheels[FRONT_RIGHT].axle->SetVelocity(0, wheels[FRONT_RIGHT].wheelSpeed);
+        wheels[MIDDLE_LEFT].axle->SetVelocity(0, wheels[MIDDLE_LEFT].wheelSpeed);
+        wheels[MIDDLE_RIGHT].axle->SetVelocity(0, wheels[MIDDLE_RIGHT].wheelSpeed);
+        //wheels[REAR_LEFT].axle->SetVelocity(0, wheels[REAR_LEFT].wheelSpeed);
+        //wheels[REAR_RIGHT].axle->SetVelocity(0, wheels[REAR_RIGHT].wheelSpeed);
 
-        wheels[FRONT_LEFT].axle->SetVelocity(0, wheels[FRONT_LEFT].wheelSpeed / r);
-        wheels[FRONT_RIGHT].axle->SetVelocity(0, wheels[FRONT_RIGHT].wheelSpeed / r);
-        wheels[MIDDLE_LEFT].axle->SetVelocity(0, wheels[MIDDLE_LEFT].wheelSpeed / r);
-        wheels[MIDDLE_RIGHT].axle->SetVelocity(0, wheels[MIDDLE_RIGHT].wheelSpeed / r);
-        wheels[REAR_LEFT].axle->SetVelocity(0, wheels[REAR_LEFT].wheelSpeed / r);
-        wheels[REAR_RIGHT].axle->SetVelocity(0, wheels[REAR_RIGHT].wheelSpeed / r);
-
-        wheels[FRONT_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
-        wheels[FRONT_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
+        wheels[FRONT_LEFT].axle->SetMaxForce(0, 0);
+        wheels[FRONT_RIGHT].axle->SetMaxForce(0, 0);
         wheels[MIDDLE_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
         wheels[MIDDLE_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
-        wheels[REAR_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
-        wheels[REAR_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
-
+        wheels[REAR_LEFT].axle->SetMaxForce(0, 0);
+        wheels[REAR_RIGHT].axle->SetMaxForce(0, 0);
     } else {
         wheels[FRONT_LEFT].joint->SetMaxForce(0, 0.0);
         wheels[FRONT_RIGHT].joint->SetMaxForce(0, 0.0);
@@ -417,30 +404,8 @@ void AllWheelSteeringPlugin::GetPositionCmd()
 {
     boost::mutex::scoped_lock lock(mutex);
 
-    double mR, a, b, kappa, t1_left, t1_right, t2, factor_left, factor_right, v_left, v_right;
-    double set_phi_left, set_phi_right, current_phi_fl, current_phi_fr, current_phi_ml, current_phi_mr, current_phi_rl, current_phi_rr;
+    double current_phi_fl, current_phi_fr, current_phi_ml, current_phi_mr, current_phi_rl, current_phi_rr;
     double vel_phi_fl, vel_phi_fr, vel_phi_ml, vel_phi_mr, vel_phi_rl, vel_phi_rr;
-
-    mR = minRadius;
-    a = wheelTrack / 2;
-    b = wheelBase / 2;
-
-    //  if (x_ == 0.0 && rot_ != 0.0 ) {
-    //    x_ = fabs(rot_ * mR);
-    ////    ROS_INFO("robot was given a rotation command without an linear speed. x_ set to %f", x_);
-    ////    ROS_INFO("kappa calulates to %f", (rot_ / x_));
-    //  }
-
-    //  kappa = (x_ != 0.0) ? rot_ / x_ : 0.0;  // inverse radius
-
-    //  if (kappa >  1.0/ mR ) kappa =  1.0/mR;
-    //  if (kappa < -1.0/ mR ) kappa = -1.0/mR;
-
-    //  t1_left  = 1.0 - a * kappa;
-    //  t1_right = 1.0 + a * kappa;
-    //  t2  = b * kappa;
-    //  factor_left  = sqrt((t1_left*t1_left)  + (t2*t2));
-    //  factor_right = sqrt((t1_right*t1_right) + (t2*t2));
 
     if (cmd_.speed > maxVelX) {
         cmd_.speed = maxVelX;
@@ -448,8 +413,15 @@ void AllWheelSteeringPlugin::GetPositionCmd()
         cmd_.speed = -maxVelX;
     }
 
-    //  v_left  = cmd_.linear.x * factor_left;
-    //  v_right = cmd_.linear.x * factor_right;
+    //ROS_INFO("steer before %a", cmd_.steerAngleFront);
+    if(cmd_.steerAngleFront >= M_PI_2) {
+        cmd_.steerAngleFront = M_PI_2;
+        //ROS_INFO("steer >= 90");
+    } else if(cmd_.steerAngleFront <= -M_PI_2) {
+        cmd_.steerAngleFront = -M_PI_2;
+        //ROS_INFO("steer <= -90");
+    }
+    //ROS_INFO("steer after %a", cmd_.steerAngleFront);
 
     current_phi_fl = wheels[FRONT_LEFT].joint->GetAngle(0).RADIAN();
     current_phi_fr = wheels[FRONT_RIGHT].joint->GetAngle(0).RADIAN();
@@ -458,9 +430,6 @@ void AllWheelSteeringPlugin::GetPositionCmd()
     current_phi_rl = wheels[REAR_LEFT].joint->GetAngle(0).RADIAN();
     current_phi_rr = wheels[REAR_RIGHT].joint->GetAngle(0).RADIAN();
 
-    //  ROS_INFO("i: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", current_phi_fl, current_phi_fr, current_phi_rl, current_phi_rr);
-    //  ROS_INFO("s: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", set_phi_left, set_phi_right, set_phi_left, set_phi_right);
-
     vel_phi_fl = wheels[FRONT_LEFT].joint->GetVelocity(0);
     vel_phi_fr = wheels[FRONT_RIGHT].joint->GetVelocity(0);
     vel_phi_ml = wheels[MIDDLE_LEFT].joint->GetVelocity(0);
@@ -468,13 +437,30 @@ void AllWheelSteeringPlugin::GetPositionCmd()
     vel_phi_rl = wheels[REAR_LEFT].joint->GetVelocity(0);
     vel_phi_rr = wheels[REAR_RIGHT].joint->GetVelocity(0);
 
-    if (!cmd_.mode.compare("ackermann")) {
-        wheels[FRONT_LEFT].jointSpeed   = ( ((cmd_.steerAngleFront - current_phi_fl) * proportionalControllerGain) - vel_phi_fl * derivativeControllerGain);
-        wheels[FRONT_RIGHT].jointSpeed  = ( ((cmd_.steerAngleFront - current_phi_fr) * proportionalControllerGain) - vel_phi_fr * derivativeControllerGain);
+    double tan_steer= tan(cmd_.steerAngleFront);
+    double b = wheelTrack;
+    double l = wheelBase;
+    double steer_l = atan2(l*tan_steer,l-b*tan_steer);
+    double steer_r = atan2(l*tan_steer,l+b*tan_steer);
+
+    // hack for precission issue in tan
+    if(cmd_.steerAngleFront >= M_PI_2) {
+        steer_l = 3*M_PI_4;
+        steer_r = M_PI_4;
+        //ROS_INFO("steer > 90, set to steering manual");
+    } else if(cmd_.steerAngleFront <= -M_PI_2) {
+        steer_l = -M_PI_4;
+        steer_r = -3*M_PI_4;
+        //ROS_INFO("steer < -90, set to steering manual");
+    }
+
+    if (!cmd_.mode.compare("continuous")) {
+        wheels[FRONT_LEFT].jointSpeed   = ( ((steer_l - current_phi_fl) * proportionalControllerGain) - vel_phi_fl * derivativeControllerGain);
+        wheels[FRONT_RIGHT].jointSpeed  = ( ((steer_r - current_phi_fr) * proportionalControllerGain) - vel_phi_fr * derivativeControllerGain);
         wheels[MIDDLE_LEFT].jointSpeed  = ( ((0  - current_phi_ml) * proportionalControllerGain) - vel_phi_ml* derivativeControllerGain); // fixed joint
         wheels[MIDDLE_RIGHT].jointSpeed = ( ((0  - current_phi_mr) * proportionalControllerGain) - vel_phi_mr * derivativeControllerGain); // fixed joint
-        wheels[REAR_LEFT].jointSpeed    = ( ((cmd_.steerAngleRear  - current_phi_rl) * proportionalControllerGain) - vel_phi_rl * derivativeControllerGain);
-        wheels[REAR_RIGHT].jointSpeed   = ( ((cmd_.steerAngleRear  - current_phi_rr) * proportionalControllerGain) - vel_phi_rr * derivativeControllerGain);
+        wheels[REAR_LEFT].jointSpeed    = ( ((-steer_l  - current_phi_rl) * proportionalControllerGain) - vel_phi_rl * derivativeControllerGain);
+        wheels[REAR_RIGHT].jointSpeed   = ( ((-steer_r  - current_phi_rr) * proportionalControllerGain) - vel_phi_rr * derivativeControllerGain);
     }
     if (!cmd_.mode.compare("point_turn")) {
         wheels[FRONT_LEFT].jointSpeed   = ( ((-M_PI_4 - current_phi_fl) * proportionalControllerGain) - vel_phi_fl * derivativeControllerGain);
@@ -485,9 +471,10 @@ void AllWheelSteeringPlugin::GetPositionCmd()
         wheels[REAR_RIGHT].jointSpeed   = ( ((-M_PI_4  - current_phi_rr) * proportionalControllerGain) - vel_phi_rr * derivativeControllerGain);
     }
 
-    //  ROS_INFO("v: fl: [%f] fr: [%f] rl: [%f] rr: [%f]\n", wheels[FRONT_LEFT].jointSpeed, wheels[FRONT_RIGHT].jointSpeed, wheels[REAR_LEFT].jointSpeed, wheels[REAR_RIGHT].jointSpeed);
+    //  ROS_INFO("i: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", current_phi_fl, current_phi_fr, current_phi_rl, current_phi_rr);
+    //  ROS_INFO("s: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", vel_phi_fl, vel_phi_fr, vel_phi_rl, vel_phi_rr);
 
-    //ROS_DEBUG_STREAM_NAMED("all_wheel_steering_plugin", "X: [" << x_ << "] ROT: [" << rot_ << "]");
+    //  ROS_INFO("v: fl: [%f] fr: [%f] rl: [%f] rr: [%f]\n", wheels[FRONT_LEFT].jointSpeed, wheels[FRONT_RIGHT].jointSpeed, wheels[REAR_LEFT].jointSpeed, wheels[REAR_RIGHT].jointSpeed);
 
     // Changed motors to be always on, which is probably what we want anyway
     enableMotors = true;
