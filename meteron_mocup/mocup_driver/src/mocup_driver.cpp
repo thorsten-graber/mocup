@@ -44,14 +44,14 @@ static double maxDeltaFilter(double y, double x, double c) {
 Driver::Driver(const std::string& ns)
     : nh(ns)
 {
-    motor_control_parameters.min_velocity        = 0.05;
-    motor_control_parameters.max_velocity        = 1.0;
+    motor_control_parameters.min_velocity        = 0.01;
+    motor_control_parameters.max_velocity        = 0.1;
     motor_control_parameters.min_object_distance = 0.2;
 
     motor_control_parameters.chassis_width       = 0.3;
-    motor_control_parameters.chassis_length      = 0.3;
+    motor_control_parameters.chassis_length      = 0.35;
 
-    motor_control_parameters.wheel_radius        = 0.03; 
+    motor_control_parameters.wheel_radius        = 0.035;
 
     motor_control_parameters.motor_states.header.frame_id = "base_link";
     motor_control_parameters.motor_states.name.push_back("front_right_wheel_suspension_joint");
@@ -286,7 +286,7 @@ void Driver::publishOdometry()
     double s;
 
     // vehicle geometry
-    b = motor_control_parameters.chassis_width / 2.0;
+    b = motor_control_parameters.chassis_width;
     r = motor_control_parameters.wheel_radius;
 
     alpha_r = degToRad(posToDeg(actual_readings.motor.position.right_wheel_joint - previous_readings.motor.position.right_wheel_joint));
@@ -295,7 +295,7 @@ void Driver::publishOdometry()
     phi_l   = actual_readings.motor.angle.left_suspension_wheel_joint;
 
     // Compute angular velocity for ICC which is same as angular velocity of vehicle
-    yaw = ((alpha_l * sin(phi_l) + alpha_r * sin(phi_r))* r) / (2.0 * b );
+    yaw = ((alpha_l * sin(phi_l) + alpha_r * sin(phi_r))* r) / b;
 
     // Compute translation using previous yaw angle using last pose
     double euler[3];
