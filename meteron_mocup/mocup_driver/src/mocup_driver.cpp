@@ -193,6 +193,7 @@ void Driver::motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg)
             alpha = -M_PI_2;
         }
 
+        // limit wheel speed according to actual steer angles due to the low dynamics
         alpha = maxDeltaFilter(alpha, alpha_old, 0.0025);
         alpha_old = alpha;
 
@@ -232,10 +233,14 @@ void Driver::motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg)
     if(!strcmp(cmd_msg.mode.c_str(), "point_turn")) {
         int16_t pwm = floatToInt(cmd_vel);
 
+        // limit wheel speed according to actual steer angles due to the low dynamics
+        double alpha = maxDeltaFilter(45, alpha_old, 0.0025);
+        alpha_old = alpha;
+
         motor_control_parameters.control_input.speed_r = pwm;
-        motor_control_parameters.control_input.steer_r = 45;
+        motor_control_parameters.control_input.steer_r = alpha;
         motor_control_parameters.control_input.speed_l = -pwm;
-        motor_control_parameters.control_input.steer_l = -45;
+        motor_control_parameters.control_input.steer_l = -alpha;
     }
 }
 

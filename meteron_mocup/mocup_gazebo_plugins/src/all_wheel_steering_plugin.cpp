@@ -229,7 +229,7 @@ void AllWheelSteeringPlugin::Update()
     // TODO: Step should be in a parameter of this function
     double l, b, r;
     double omega_fl, omega_fr, omega_ml, omega_mr, omega_rl, omega_rr, omega_phi;
-    double phi_fl, phi_fr, phi_ml, phi_mr, phi_rl, phi_rr, R;
+    double phi_fl, phi_fr, phi_ml, phi_mr, phi_rl, phi_rr;
     double v;
 
     // handle callbacks
@@ -297,9 +297,23 @@ void AllWheelSteeringPlugin::Update()
         publish_joint_states();
     }
 
+    double tan_steer= tan(cmd_.steerAngleFront);
+    double steer_l = atan2(l*tan_steer,l-b*tan_steer);
+    double steer_r = atan2(l*tan_steer,l+b*tan_steer);
+
+//    // hack for precission issue in tan
+//    if(cmd_.steerAngleFront >= M_PI_2) {
+//        steer_l = 3*M_PI_4;
+//        steer_r = M_PI_4;
+//        //ROS_INFO("steer > 90, set to steering manual");
+//    } else if(cmd_.steerAngleFront <= -M_PI_2) {
+//        steer_l = -M_PI_4;
+//        steer_r = -3*M_PI_4;
+//        //ROS_INFO("steer < -90, set to steering manual");
+//    }
+
     if (!cmd_.mode.compare("continuous")) {
         // calculate wheel speeds
-        double tan_steer= tan(cmd_.steerAngleFront);
         double speed_l = cmd_.speed*(1-b*tan_steer/l);
         double speed_r = cmd_.speed*(1+b*tan_steer/l);
 
@@ -318,24 +332,24 @@ void AllWheelSteeringPlugin::Update()
             speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
         }
 
-        ROS_INFO("cmd_vel: %f, speed_l: %f, speed_r: %f", cmd_.speed, speed_l, speed_r);
+        //ROS_INFO("cmd_vel: %f, speed_l: %f, speed_r: %f", cmd_.speed, speed_l, speed_r);
 
-        //wheels[FRONT_LEFT].wheelSpeed  = ;
-        //wheels[FRONT_RIGHT].wheelSpeed = ;
-        wheels[MIDDLE_LEFT].wheelSpeed   = speed_l / r;
-        wheels[MIDDLE_RIGHT].wheelSpeed  = speed_r / r;
-        //wheels[REAR_LEFT].wheelSpeed   = ;
-        //wheels[REAR_RIGHT].wheelSpeed  = ;
+        wheels[FRONT_LEFT].wheelSpeed   = speed_l / (cos(steer_l) * r);
+        wheels[FRONT_RIGHT].wheelSpeed  = speed_r / (cos(steer_r) * r);
+        wheels[MIDDLE_LEFT].wheelSpeed  = speed_l / r;
+        wheels[MIDDLE_RIGHT].wheelSpeed = speed_r / r;
+        wheels[REAR_LEFT].wheelSpeed    = speed_l / (cos(steer_l) * r);
+        wheels[REAR_RIGHT].wheelSpeed   = speed_r / (cos(steer_r) * r);
     }
 
     if (!cmd_.mode.compare("point_turn")) {
         // calculate wheel speeds
-        //wheels[FRONT_LEFT].wheelSpeed  = ;
-        //wheels[FRONT_RIGHT].wheelSpeed = ;
+        wheels[FRONT_LEFT].wheelSpeed    = -cmd_.speed / (cos(steer_l) * r);
+        wheels[FRONT_RIGHT].wheelSpeed   =  cmd_.speed / (cos(steer_r) * r);
         wheels[MIDDLE_LEFT].wheelSpeed   = -cmd_.speed / r;
         wheels[MIDDLE_RIGHT].wheelSpeed  =  cmd_.speed / r;
-        //wheels[REAR_LEFT].wheelSpeed   = ;
-        //wheels[REAR_RIGHT].wheelSpeed  = ;
+        wheels[REAR_LEFT].wheelSpeed     = -cmd_.speed / (cos(steer_l) * r);
+        wheels[REAR_RIGHT].wheelSpeed    =  cmd_.speed / (cos(steer_r) * r);
     }
 
     ROS_DEBUG_STREAM_NAMED("all_wheel_steering_plugin", "Wheel speeds:\n"
@@ -370,19 +384,19 @@ void AllWheelSteeringPlugin::Update()
         wheels[REAR_LEFT].joint->SetMaxForce(0, jointMaxTorque);
         wheels[REAR_RIGHT].joint->SetMaxForce(0, jointMaxTorque);
 
-        //wheels[FRONT_LEFT].axle->SetVelocity(0, wheels[FRONT_LEFT].wheelSpeed);
-        //wheels[FRONT_RIGHT].axle->SetVelocity(0, wheels[FRONT_RIGHT].wheelSpeed);
+        wheels[FRONT_LEFT].axle->SetVelocity(0, wheels[FRONT_LEFT].wheelSpeed);
+        wheels[FRONT_RIGHT].axle->SetVelocity(0, wheels[FRONT_RIGHT].wheelSpeed);
         wheels[MIDDLE_LEFT].axle->SetVelocity(0, wheels[MIDDLE_LEFT].wheelSpeed);
         wheels[MIDDLE_RIGHT].axle->SetVelocity(0, wheels[MIDDLE_RIGHT].wheelSpeed);
-        //wheels[REAR_LEFT].axle->SetVelocity(0, wheels[REAR_LEFT].wheelSpeed);
-        //wheels[REAR_RIGHT].axle->SetVelocity(0, wheels[REAR_RIGHT].wheelSpeed);
+        wheels[REAR_LEFT].axle->SetVelocity(0, wheels[REAR_LEFT].wheelSpeed);
+        wheels[REAR_RIGHT].axle->SetVelocity(0, wheels[REAR_RIGHT].wheelSpeed);
 
-        wheels[FRONT_LEFT].axle->SetMaxForce(0, 0);
-        wheels[FRONT_RIGHT].axle->SetMaxForce(0, 0);
+        wheels[FRONT_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
+        wheels[FRONT_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
         wheels[MIDDLE_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
         wheels[MIDDLE_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
-        wheels[REAR_LEFT].axle->SetMaxForce(0, 0);
-        wheels[REAR_RIGHT].axle->SetMaxForce(0, 0);
+        wheels[REAR_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
+        wheels[REAR_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
     } else {
         wheels[FRONT_LEFT].joint->SetMaxForce(0, 0.0);
         wheels[FRONT_RIGHT].joint->SetMaxForce(0, 0.0);
@@ -413,15 +427,15 @@ void AllWheelSteeringPlugin::GetPositionCmd()
         cmd_.speed = -maxVelX;
     }
 
-    //ROS_INFO("steer before %a", cmd_.steerAngleFront);
-    if(cmd_.steerAngleFront >= M_PI_2) {
-        cmd_.steerAngleFront = M_PI_2;
-        //ROS_INFO("steer >= 90");
-    } else if(cmd_.steerAngleFront <= -M_PI_2) {
-        cmd_.steerAngleFront = -M_PI_2;
-        //ROS_INFO("steer <= -90");
-    }
-    //ROS_INFO("steer after %a", cmd_.steerAngleFront);
+//    //ROS_INFO("steer before %a", cmd_.steerAngleFront);
+//    if(cmd_.steerAngleFront >= M_PI_2) {
+//        cmd_.steerAngleFront = M_PI_2;
+//        //ROS_INFO("steer >= 90");
+//    } else if(cmd_.steerAngleFront <= -M_PI_2) {
+//        cmd_.steerAngleFront = -M_PI_2;
+//        //ROS_INFO("steer <= -90");
+//    }
+//    //ROS_INFO("steer after %a", cmd_.steerAngleFront);
 
     current_phi_fl = wheels[FRONT_LEFT].joint->GetAngle(0).RADIAN();
     current_phi_fr = wheels[FRONT_RIGHT].joint->GetAngle(0).RADIAN();
