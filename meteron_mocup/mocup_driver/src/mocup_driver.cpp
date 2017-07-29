@@ -186,7 +186,7 @@ void Driver::motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg)
 
     // update desired motor velocity/position based on control mode
     if(!strcmp(cmd_msg.mode.c_str(), "continuous")) {
-        double alpha    = (double)cmd_msg.steerAngleFront;
+        double alpha    = (double)cmd_msg.steer;
         if(alpha > M_PI_2) {
             alpha = M_PI_2;
         } else if(alpha < -M_PI_2) {

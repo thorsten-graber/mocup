@@ -63,8 +63,7 @@ namespace Mocup {
     }
 
     if (axis_steer > 0 && (size_t) axis_steer <= joystick->axes.size()) {
-      motionCommand.steerAngleFront = joystick->axes[axis_steer-1] * steerAngle * M_PI/180.0;
-      motionCommand.steerAngleRear  = -motionCommand.steerAngleFront;
+      motionCommand.steer = joystick->axes[axis_steer-1] * steerAngle * M_PI/180.0;
     }
 
     motionCommandOutput.publish(motionCommand);
@@ -139,8 +138,7 @@ int main(int argc, char **argv) {
 
   ros::Rate rate(50.0);
   while(ros::ok()) {
-//    if (motionCommand.steerAngleFront != 0.0 ||
-//        motionCommand.steerAngleRear != 0.0 ||
+//    if (motionCommand.steer != 0.0 ||
 //        motionCommand.speed != 0.0)
       motionCommandOutput.publish(motionCommand);
     moveCamera(rate.expectedCycleTime().toSec());

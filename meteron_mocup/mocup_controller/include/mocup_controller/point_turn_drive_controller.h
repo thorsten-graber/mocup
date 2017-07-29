@@ -125,11 +125,11 @@ class PointTurnDriveController: public VehicleControlInterface
           if (tan_gamma < -max_tan_gamma) tan_gamma = -max_tan_gamma;
         }
 
-        drive.steerAngleFront = atan( tan_gamma + kappa * B);
+        drive.steer = atan( tan_gamma + kappa * B);
         if(speed < 0) {
-            drive.steerAngleFront = -drive.steerAngleFront;
+            drive.steer = -drive.steer;
         }
-        drive.steerAngleRear  = -drive.steerAngleFront;//atan(-tan_gamma + kappa * B);
+        drive.steer  = -drive.steer;//atan(-tan_gamma + kappa * B);
         drive.mode = "continuous";
       }
       drivePublisher_.publish(drive);

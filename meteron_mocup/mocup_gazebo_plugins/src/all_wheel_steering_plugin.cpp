@@ -297,16 +297,16 @@ void AllWheelSteeringPlugin::Update()
         publish_joint_states();
     }
 
-    double tan_steer= tan(cmd_.steerAngleFront);
+    double tan_steer= tan(cmd_.steer);
     double steer_l = atan2(l*tan_steer,l-b*tan_steer);
     double steer_r = atan2(l*tan_steer,l+b*tan_steer);
 
 //    // hack for precission issue in tan
-//    if(cmd_.steerAngleFront >= M_PI_2) {
+//    if(cmd_.steer >= M_PI_2) {
 //        steer_l = 3*M_PI_4;
 //        steer_r = M_PI_4;
 //        //ROS_INFO("steer > 90, set to steering manual");
-//    } else if(cmd_.steerAngleFront <= -M_PI_2) {
+//    } else if(cmd_.steer <= -M_PI_2) {
 //        steer_l = -M_PI_4;
 //        steer_r = -3*M_PI_4;
 //        //ROS_INFO("steer < -90, set to steering manual");
@@ -427,15 +427,15 @@ void AllWheelSteeringPlugin::GetPositionCmd()
         cmd_.speed = -maxVelX;
     }
 
-//    //ROS_INFO("steer before %a", cmd_.steerAngleFront);
-//    if(cmd_.steerAngleFront >= M_PI_2) {
-//        cmd_.steerAngleFront = M_PI_2;
+//    //ROS_INFO("steer before %a", cmd_.steer);
+//    if(cmd_.steer >= M_PI_2) {
+//        cmd_.steer = M_PI_2;
 //        //ROS_INFO("steer >= 90");
-//    } else if(cmd_.steerAngleFront <= -M_PI_2) {
-//        cmd_.steerAngleFront = -M_PI_2;
+//    } else if(cmd_.steer <= -M_PI_2) {
+//        cmd_.steer = -M_PI_2;
 //        //ROS_INFO("steer <= -90");
 //    }
-//    //ROS_INFO("steer after %a", cmd_.steerAngleFront);
+//    //ROS_INFO("steer after %a", cmd_.steer);
 
     current_phi_fl = wheels[FRONT_LEFT].joint->GetAngle(0).RADIAN();
     current_phi_fr = wheels[FRONT_RIGHT].joint->GetAngle(0).RADIAN();
@@ -451,18 +451,18 @@ void AllWheelSteeringPlugin::GetPositionCmd()
     vel_phi_rl = wheels[REAR_LEFT].joint->GetVelocity(0);
     vel_phi_rr = wheels[REAR_RIGHT].joint->GetVelocity(0);
 
-    double tan_steer= tan(cmd_.steerAngleFront);
+    double tan_steer= tan(cmd_.steer);
     double b = wheelTrack;
     double l = wheelBase;
     double steer_l = atan2(l*tan_steer,l-b*tan_steer);
     double steer_r = atan2(l*tan_steer,l+b*tan_steer);
 
     // hack for precission issue in tan
-    if(cmd_.steerAngleFront >= M_PI_2) {
+    if(cmd_.steer >= M_PI_2) {
         steer_l = 3*M_PI_4;
         steer_r = M_PI_4;
         //ROS_INFO("steer > 90, set to steering manual");
-    } else if(cmd_.steerAngleFront <= -M_PI_2) {
+    } else if(cmd_.steer <= -M_PI_2) {
         steer_l = -M_PI_4;
         steer_r = -3*M_PI_4;
         //ROS_INFO("steer < -90, set to steering manual");
