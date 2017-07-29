@@ -138,8 +138,8 @@ int main(int argc, char **argv) {
 
   ros::Rate rate(50.0);
   while(ros::ok()) {
-//    if (motionCommand.steer != 0.0 ||
-//        motionCommand.speed != 0.0)
+    if (motionCommand.steer != 0.0 ||
+        motionCommand.speed != 0.0)
       motionCommandOutput.publish(motionCommand);
     moveCamera(rate.expectedCycleTime().toSec());
     ros::spinOnce();
