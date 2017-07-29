@@ -2,6 +2,8 @@ meteron_mocup/mocup_arduino/build
 meteron_mocup/mocup_bringup/build
 meteron_mocup/mocup_driver/bin
 meteron_mocup/mocup_driver/build
+meteron_mocup/mocup_camera/bin
+meteron_mocup/mocup_camera/build
 meteron_mocup/mocup_controller/bin
 meteron_mocup/mocup_controller/build
 meteron_mocup/mocup_description/build
@@ -10,7 +12,6 @@ meteron_mocup/mocup_gazebo_plugins/build
 meteron_mocup/mocup_gazebo_plugins/lib
 meteron_mocup/mocup_msgs/build
 meteron_mocup/mocup_msgs/src
-meteron_mocup/mocup_msgs/src/mocup_msgs/__init__.pyc
 meteron_mocup/mocup_msgs/msg_gen
 meteron_mocup/mocup_msgs/srv_gen
 meteron_mocup/mocup_joystick/build
