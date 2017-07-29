@@ -11,7 +11,7 @@
       <parent link="${parent}" />
       <child link="camera_mast_link" />
       <axis xyz="0 0 1" />
-      <limit lower="${-M_PI}" upper="${M_PI}" effort="100" velocity="100" />
+      <limit lower="${-2*M_PI}" upper="${2*M_PI}" effort="100" velocity="100" />
     </joint>
 
     <link name="camera_mast_link">

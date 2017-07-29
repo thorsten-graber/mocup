@@ -58,6 +58,7 @@ private:
   void publish_odometry();
   void publish_joint_states();
   void GetPositionCmd();
+  void ComputeLocomotion(double speed, double steer, double &speed_l, double &speed_r, double &steer_l, double &steer_r);
 
 private:
   // physics
