@@ -72,8 +72,8 @@ void AllWheelSteeringPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf
     jointStateName = "joint_states";
     proportionalControllerGain = 8.0;
     derivativeControllerGain = 0.0;
-    wheelTrack = 0.30;
-    wheelBase = 0.305;
+    wheelTrack = 0.295;
+    wheelBase = 0.304;
     wheelRadius = 0.035;
     jointMaxTorque = 10.0;
     wheelMaxTorque = 10.0;
@@ -228,13 +228,13 @@ void AllWheelSteeringPlugin::Update()
 {
     // TODO: Step should be in a parameter of this function
 
-    double b, r;
+    double l, r;
     double steer_l, steer_r, speed_l, speed_r;
     double omega_fl, omega_fr, omega_ml, omega_mr, omega_rl, omega_rr, omega_phi;
     double phi_fl, phi_fr, phi_ml, phi_mr, phi_rl, phi_rr;
     double v;
 
-    b = wheelTrack;
+    l = wheelBase;
     r = wheelRadius;
 
     // handle callbacks
@@ -266,7 +266,7 @@ void AllWheelSteeringPlugin::Update()
 
         // Compute angular velocity for ICC which is same as angular velocity of vehicle
         //omega_phi = (omega_fl * sin(phi_fl) * r / b); //+ omega_fr * sin(phi_fr) + omega_rl * sin(-phi_rl) + omega_rr * sin(-phi_rr)) * r / (4 * b);
-        omega_phi = ((omega_fl * sin(phi_fl) + omega_fr * sin(phi_fr)) * r) / b;
+        omega_phi = ((omega_fl * sin(phi_fl) + omega_fr * sin(phi_fr)) * r) / l;
 
         v = r * (omega_ml + omega_mr)/2;
 

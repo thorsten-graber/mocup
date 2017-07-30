@@ -34,28 +34,36 @@
 
 class PointTurnDriveController: public VehicleControlInterface
 {
-  public:
+public:
     virtual void configure(ros::NodeHandle& params, MotionParameters* mp) // todo: does not take alternative goal tolerances (set by service) into account
     {
-      mp_ = mp;
+        mp_ = mp;
 
-      ros::NodeHandle nh;
-      drivePublisher_ = nh.advertise<mocup_msgs::MotionCommand>("drive", 1);
+        ros::NodeHandle nh;
+        drivePublisher_ = nh.advertise<mocup_msgs::MotionCommand>("drive", 1);
 
-      max_steeringangle = 45.0 * M_PI/180.0;
-      params.getParam("max_steeringangle", max_steeringangle);
+        max_steerAngle = M_PI_2; // 90 deg
+        params.getParam("max_steerAngle", max_steerAngle);
+        wheelBase = 0.304;
+        params.getParam("wheelBase", wheelBase);
+        wheelTrack = 0.295;
+        params.getParam("wheelTrack", wheelTrack);
     }
 
     virtual void executeTwist(const geometry_msgs::Twist& velocity)
     {
-      float backward = (velocity.linear.x < 0) ? -1.0 : 1.0;
-      float speed = backward * sqrt(velocity.linear.x*velocity.linear.x + velocity.linear.y*velocity.linear.y);
-      mp_->limitSpeed(speed);
+        float backward = (velocity.linear.x < 0) ? -1.0 : 1.0;
+        float speed = backward * sqrt(velocity.linear.x*velocity.linear.x + velocity.linear.y*velocity.linear.y);
+        mp_->limitSpeed(speed);
 
-      float kappa = velocity.angular.z * speed;
-      float tan_gamma = tan(velocity.linear.y / velocity.linear.x);
+//        float omega = velocity.angular.z;
+//        float tan_gamma = velocity.linear.y / velocity.linear.x;
+//        setDriveCommand(speed, omega, tan_gamma);
 
-      setDriveCommand(speed, kappa, tan_gamma);
+          float omega = velocity.angular.z;
+          float atan_gamma = atan(velocity.linear.y / velocity.linear.x);
+          publishDriveCommand(speed, omega, atan_gamma);
+
     }
 
     virtual void executeMotionCommand(double carrot_relative_angle, double carrot_orientation_error, double carrot_distance, double speed)
@@ -87,62 +95,77 @@ class PointTurnDriveController: public VehicleControlInterface
 
     virtual void stop()
     {
-      drive.speed = 0.0;
-      drive.mode = "continuous";
-      drivePublisher_.publish(drive);
+        drive.speed = 0.0;
+        drive.mode = "continuous";
+        drivePublisher_.publish(drive);
     }
 
     virtual double getCommandedSpeed() const
     {
-      return drive.speed;
+        return drive.speed;
     }
 
     virtual std::string getName()
     {
-      return "Point Turn Drive Controller";
+        return "Point Turn Drive Controller";
     }
 
-    void setDriveCommand(float speed, float kappa, float tan_gamma) {
+    void setDriveCommand(float speed, float omega, float tan_gamma) {
 
-      float B = 0.16; // half wheel distance (front - rear)
+        float l, b;
+        float speed_l, speed_r;
 
-      drive.speed = speed;
-      mp_->limitSpeed(drive.speed);
+        b = wheelTrack;
+        l = wheelBase;
 
-      if (drive.speed != 0.0) {
-        float max_kappa = tan(max_steeringangle) / B;
-        if (kappa >= max_kappa) {
-          kappa = max_kappa;
-          tan_gamma = 0;
+        speed_l = 0.0;
+        speed_r = 0.0;
 
-        } else if (kappa <= -max_kappa) {
-          kappa = -max_kappa;
-          tan_gamma = 0;
+        if(speed != 0.0) {
+            speed_l = speed*(1+b*tan_gamma/l);
+            speed_r = speed*(1-b*tan_gamma/l);
+        }
+        if(omega != 0.0) {
+            speed_l += -omega * b;
+            speed_r +=  omega * b;
+        }
 
+        if(speed_l == speed_r) {
+            drive.steer = 0.0;
         } else {
-          float max_tan_gamma = tan(max_steeringangle) - fabs(kappa) * B;
-          if (tan_gamma >  max_tan_gamma) tan_gamma =  max_tan_gamma;
-          if (tan_gamma < -max_tan_gamma) tan_gamma = -max_tan_gamma;
+            drive.steer = atan(((speed_r - speed_l)*l)/((speed_l + speed_r)*b));
+            if(speed < 0) drive.steer = atan(((speed_l - speed_r)*l)/((speed_r + speed_l)*b));
         }
 
-        drive.steer = atan( tan_gamma + kappa * B);
-        if(speed < 0) {
-            drive.steer = -drive.steer;
-        }
-        drive.steer  = -drive.steer;//atan(-tan_gamma + kappa * B);
+        drive.speed = speed + fabs(omega*b);
+        mp_->limitSpeed(drive.speed);
         drive.mode = "continuous";
-      }
-      drivePublisher_.publish(drive);
+
+        drivePublisher_.publish(drive);
     }
 
-  protected:
+    void publishDriveCommand(float speed, float omega, float atan_gamma) {
+        float l = wheelBase;
+
+        float sign = (speed < 0) ? -1.0 : 1.0;
+        drive.steer = sign*atan_gamma + atan((omega*l)/(2*fabs(speed)));
+        if(speed == 0.0) drive.steer = 0;
+
+        drive.speed = speed;
+        mp_->limitSpeed(drive.speed);
+        drive.mode = "continuous";
+
+        drivePublisher_.publish(drive);
+    }
+
+protected:
     ros::Publisher drivePublisher_;
 
     mocup_msgs::MotionCommand drive;
 
     MotionParameters* mp_;
 
-    double max_steeringangle;
+    double max_steerAngle, wheelRadius, wheelBase, wheelTrack;
 };
 
 #endif

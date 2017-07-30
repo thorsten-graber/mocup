@@ -48,8 +48,8 @@ Driver::Driver(const std::string& ns)
     motor_control_parameters.max_velocity        = 0.1;
     motor_control_parameters.min_object_distance = 0.2;
 
-    motor_control_parameters.chassis_width       = 0.3;
-    motor_control_parameters.chassis_length      = 0.35;
+    motor_control_parameters.chassis_width       = 0.295;
+    motor_control_parameters.chassis_length      = 0.304;
 
     motor_control_parameters.wheel_radius        = 0.035;
 

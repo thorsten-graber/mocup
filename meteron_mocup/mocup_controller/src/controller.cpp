@@ -24,10 +24,10 @@ Controller::Controller(const std::string& ns)
   , state(INACTIVE)
 {
   motion_control_setup.carrot_distance = 1.0;
-  motion_control_setup.current_speed = 0.0;
-  motion_control_setup.min_speed = 0.1;
-  motion_control_setup.max_speed = 1.0;
-  motion_control_setup.inclination_speed_reduction_factor = 0.5 / (30 * M_PI/180.0); // 0.5 per 30 degrees
+  motion_control_setup.current_speed = 0.1;
+  motion_control_setup.min_speed = 0.01;
+  motion_control_setup.max_speed = 0.1;
+  motion_control_setup.inclination_speed_reduction_factor = 0.5 / (10 * M_PI/180.0); // 0.5 per 10 degrees
   motion_control_setup.inclination_speed_reduction_time_constant = 0.3;
   map_frame_id = "map";//map_frame_id = "nav";
   base_frame_id = "base_link";
@@ -274,7 +274,7 @@ void Controller::speedCallback(const std_msgs::Float32& speed) {
 bool Controller::alternativeTolerancesService(mocup_msgs::SetAlternativeTolerance::Request& req,
                                              mocup_msgs::SetAlternativeTolerance::Response& res)
 {
-  ROS_DEBUG("[monstertruck_controller]: tolerance service");
+  ROS_DEBUG("[mocup_controller]: tolerance service");
   this->alternative_tolerance_goalID.reset(new actionlib_msgs::GoalID(req.goalID));
   alternative_goal_position_tolerance = req.linearTolerance;
   alternative_angle_tolerance = req.angularTolerance;

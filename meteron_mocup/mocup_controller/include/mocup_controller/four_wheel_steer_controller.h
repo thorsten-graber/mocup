@@ -42,8 +42,10 @@ class FourWheelSteerController: public VehicleControlInterface
       ros::NodeHandle nh;
       drivePublisher_ = nh.advertise<mocup_msgs::MotionCommand>("drive", 1);
 
-      max_steeringangle = 45.0 * M_PI/180.0;
-      params.getParam("max_steeringangle", max_steeringangle);
+      max_steerAngle = 90.0 * M_PI/180.0;
+      params.getParam("max_steerAngle", max_steerAngle);
+      wheelBase = 0.304;
+      params.getParam("wheelBase", wheelBase);
     }
 
     virtual void executeTwist(const geometry_msgs::Twist& velocity)
@@ -52,17 +54,24 @@ class FourWheelSteerController: public VehicleControlInterface
       float speed = backward * sqrt(velocity.linear.x*velocity.linear.x + velocity.linear.y*velocity.linear.y);
       mp_->limitSpeed(speed);
 
-      float kappa = velocity.angular.z * speed;
-      float tan_gamma = tan(velocity.linear.y / velocity.linear.x);
+//      float kappa = velocity.angular.z * speed;
+//      float tan_gamma = tan(velocity.linear.y / velocity.linear.x);
+//      setDriveCommand(speed, kappa, tan_gamma);
 
-      setDriveCommand(speed, kappa, tan_gamma);      
+      float omega = velocity.angular.z;
+      float atan_gamma = atan(velocity.linear.y / velocity.linear.x);
+      publishDriveCommand(speed, omega, atan_gamma);
     }
 
     virtual void executeMotionCommand(double carrot_relative_angle, double carrot_orientation_error, double carrot_distance, double speed)
     {
+//      float sign = speed < 0.0 ? -1.0 : 1.0;
+//      float kappa     = sign * carrot_orientation_error / carrot_distance * 1.5;
+//      float tan_gamma = tan(carrot_relative_angle - carrot_orientation_error);
+
       float sign = speed < 0.0 ? -1.0 : 1.0;
       float kappa     = sign * carrot_orientation_error / carrot_distance * 1.5;
-      float tan_gamma = tan(carrot_relative_angle - carrot_orientation_error);
+      float tan_gamma = sign * tan(carrot_relative_angle - carrot_orientation_error);
 
       this->setDriveCommand(speed, kappa ,tan_gamma);
     }
@@ -86,13 +95,13 @@ class FourWheelSteerController: public VehicleControlInterface
 
     void setDriveCommand(float speed, float kappa, float tan_gamma) {
 
-      float B = 0.16; // half wheel distance (front - rear)
+      float l = wheelBase / 2.0; // half wheel distance (front - rear)
 
       drive.speed = speed;
       mp_->limitSpeed(drive.speed);
 
       if (drive.speed != 0.0) {
-        float max_kappa = tan(max_steeringangle) / B;
+        float max_kappa = tan(max_steerAngle) / l;
         if (kappa >= max_kappa) {
           kappa = max_kappa;
           tan_gamma = 0;
@@ -102,20 +111,31 @@ class FourWheelSteerController: public VehicleControlInterface
           tan_gamma = 0;
 
         } else {
-          float max_tan_gamma = tan(max_steeringangle) - fabs(kappa) * B;
+          float max_tan_gamma = tan(max_steerAngle) - fabs(kappa) * l;
           if (tan_gamma >  max_tan_gamma) tan_gamma =  max_tan_gamma;
           if (tan_gamma < -max_tan_gamma) tan_gamma = -max_tan_gamma;
         }
 
-        drive.steer = atan( tan_gamma + kappa * B);
-        if(speed < 0) {
-            drive.steer = -drive.steer;
-        }
-        drive.steer  = -drive.steer;//atan(-tan_gamma + kappa * B);
+        drive.steer = atan( tan_gamma + kappa * l);
         drive.mode = "continuous";
       }
       drivePublisher_.publish(drive);
     }
+
+    void publishDriveCommand(float speed, float omega, float atan_gamma) {
+        float l = wheelBase;
+
+        float sign = (speed < 0) ? -1.0 : 1.0;
+        drive.steer = sign*atan_gamma + atan((omega*l)/(2*fabs(speed)));
+        if(speed == 0.0) drive.steer = 0;
+
+        drive.speed = speed;
+        mp_->limitSpeed(drive.speed);
+        drive.mode = "continuous";
+
+        drivePublisher_.publish(drive);
+    }
+
 
   protected:
     ros::Publisher drivePublisher_;
@@ -124,7 +144,7 @@ class FourWheelSteerController: public VehicleControlInterface
 
     MotionParameters* mp_;
 
-    double max_steeringangle;
+    double max_steerAngle, wheelBase;
 };
 
 #endif

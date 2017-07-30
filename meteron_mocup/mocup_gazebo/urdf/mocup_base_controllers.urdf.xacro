@@ -22,8 +22,8 @@
       <middleRightJoint>middle_right_wheel_suspension_joint</middleRightJoint>
       <rearLeftJoint>rear_left_wheel_suspension_joint</rearLeftJoint>
       <rearRightJoint>rear_right_wheel_suspension_joint</rearRightJoint>
-      <wheelBase>0.30</wheelBase>
-      <wheelTrack>0.305</wheelTrack>
+      <wheelBase>0.304</wheelBase>
+      <wheelTrack>0.295</wheelTrack>
       <wheelRadius>0.035</wheelRadius>
       <jointMaxTorque>10</jointMaxTorque>
       <wheelMaxTorque>10</wheelMaxTorque>
