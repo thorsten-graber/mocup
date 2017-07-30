@@ -27,6 +27,7 @@
       <wheelRadius>0.035</wheelRadius>
       <jointMaxTorque>10</jointMaxTorque>
       <wheelMaxTorque>10</wheelMaxTorque>
+      <jointMaxVelocity>0.0</jointMaxVelocity>
       <maxVelX>0.1</maxVelX>
       <robotNamespace>/</robotNamespace>
       <topicName>drive</topicName>

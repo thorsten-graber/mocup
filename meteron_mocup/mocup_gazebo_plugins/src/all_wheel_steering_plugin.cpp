@@ -78,6 +78,7 @@ void AllWheelSteeringPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf
     jointMaxTorque = 10.0;
     wheelMaxTorque = 10.0;
     maxVelX = 0.1;
+    jointMaxVelocity = 0.5;
 
     // load parameters
     if (_sdf->HasElement("robotNamespace")) robotNamespace = _sdf->Get<std::string>("robotNamespace");
@@ -104,6 +105,7 @@ void AllWheelSteeringPlugin::Load(physics::ModelPtr _model, sdf::ElementPtr _sdf
     if (_sdf->HasElement("jointMaxTorque")) jointMaxTorque = _sdf->Get<double>("jointMaxTorque");
     if (_sdf->HasElement("wheelMaxTorque")) wheelMaxTorque = _sdf->Get<double>("wheelMaxTorque");
     if (_sdf->HasElement("maxVelX")) maxVelX = _sdf->Get<double>("maxVelX");
+    if (_sdf->HasElement("jointMaxVelocity")) jointMaxVelocity = _sdf->Get<double>("jointMaxVelocity");
 
     double controlRate = 0.0;
     if (_sdf->HasElement("controlRate")) controlRate = _sdf->Get<double>("controlRate");
@@ -405,6 +407,13 @@ void AllWheelSteeringPlugin::GetPositionCmd()
         wheels[REAR_LEFT].jointSpeed    = ( ((M_PI_4  - current_phi_rl) * proportionalControllerGain) - vel_phi_rl * derivativeControllerGain);
         wheels[REAR_RIGHT].jointSpeed   = ( ((-M_PI_4  - current_phi_rr) * proportionalControllerGain) - vel_phi_rr * derivativeControllerGain);
     }
+
+    if (jointMaxVelocity > 0.0 && fabs(wheels[FRONT_LEFT].jointSpeed) > jointMaxVelocity) wheels[FRONT_LEFT].jointSpeed = (wheels[FRONT_LEFT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+    if (jointMaxVelocity > 0.0 && fabs(wheels[FRONT_RIGHT].jointSpeed) > jointMaxVelocity) wheels[FRONT_RIGHT].jointSpeed = (wheels[FRONT_RIGHT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+    if (jointMaxVelocity > 0.0 && fabs(wheels[MIDDLE_LEFT].jointSpeed) > jointMaxVelocity) wheels[MIDDLE_LEFT].jointSpeed = (wheels[MIDDLE_LEFT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+    if (jointMaxVelocity > 0.0 && fabs(wheels[MIDDLE_RIGHT].jointSpeed) > jointMaxVelocity) wheels[MIDDLE_RIGHT].jointSpeed = (wheels[MIDDLE_RIGHT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+    if (jointMaxVelocity > 0.0 && fabs(wheels[REAR_LEFT].jointSpeed) > jointMaxVelocity) wheels[REAR_LEFT].jointSpeed = (wheels[REAR_LEFT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+    if (jointMaxVelocity > 0.0 && fabs(wheels[REAR_RIGHT].jointSpeed) > jointMaxVelocity) wheels[REAR_RIGHT].jointSpeed = (wheels[REAR_RIGHT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
 
     //  ROS_INFO("i: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", current_phi_fl, current_phi_fr, current_phi_rl, current_phi_rr);
     //  ROS_INFO("s: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", vel_phi_fl, vel_phi_fr, vel_phi_rl, vel_phi_rr);

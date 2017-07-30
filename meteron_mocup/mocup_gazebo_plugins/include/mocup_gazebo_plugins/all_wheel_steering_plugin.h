@@ -82,6 +82,7 @@ private:
   float wheelMaxTorque;
   float minRadius;
   float maxVelX;
+  float jointMaxVelocity;
 
   struct Wheel {
     std::string axleName;
