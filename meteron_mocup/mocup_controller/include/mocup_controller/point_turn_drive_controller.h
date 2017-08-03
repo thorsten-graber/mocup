@@ -81,22 +81,24 @@ public:
                 // rotate counter clock wise
                 sign = -1.0;
             }
-            drive.speed = sign*fabs(speed);
-            drive.mode = "point_turn";
+
+            //ROS_INFO("carrot_relative_angle: %f, goal_angle_tolerance: %f", carrot_relative_angle, mp_->goal_angle_tolerance);
+
+            drive.speed = fabs(speed);
+            drive.steer = sign*M_PI_2;
             drivePublisher_.publish(drive);
             return;
         }
 
         // relative angle OK, drive straight to target
         drive.speed = fabs(speed);
-        drive.mode = "continuous";
+        drive.steer = 0.0;
         drivePublisher_.publish(drive);
     }
 
     virtual void stop()
     {
         drive.speed = 0.0;
-        drive.mode = "continuous";
         drivePublisher_.publish(drive);
     }
 

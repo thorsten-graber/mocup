@@ -230,11 +230,11 @@ void AllWheelSteeringPlugin::Update()
 {
     // TODO: Step should be in a parameter of this function
 
-    double l, r;
+    double l, r, v;
     double steer_l, steer_r, speed_l, speed_r;
     double omega_fl, omega_fr, omega_ml, omega_mr, omega_rl, omega_rr, omega_phi;
     double phi_fl, phi_fr, phi_ml, phi_mr, phi_rl, phi_rr;
-    double v;
+    double vel_phi_fl, vel_phi_fr, vel_phi_ml, vel_phi_mr, vel_phi_rl, vel_phi_rr;
 
     l = wheelBase;
     r = wheelRadius;
@@ -247,25 +247,87 @@ void AllWheelSteeringPlugin::Update()
     stepTime = world->GetSimTime() - prevUpdateTime;
 
     if (controlPeriod == 0.0 || stepTime > controlPeriod) {
-        GetPositionCmd();
-
         prevUpdateTime = world->GetSimTime();
 
+        // get current wheel velocities and wheel joint angles and wheel joint velocities.
+        {
+            boost::mutex::scoped_lock lock(mutex);
+
+            omega_fl = wheels[FRONT_LEFT].axle->GetVelocity(0);
+            omega_fr = wheels[FRONT_RIGHT].axle->GetVelocity(0);
+            omega_ml = wheels[MIDDLE_LEFT].axle->GetVelocity(0);
+            omega_mr = wheels[MIDDLE_RIGHT].axle->GetVelocity(0);
+            omega_rl = wheels[REAR_LEFT].axle->GetVelocity(0);
+            omega_rr = wheels[REAR_RIGHT].axle->GetVelocity(0);
+
+            phi_fl = wheels[FRONT_LEFT].joint->GetAngle(0).RADIAN();
+            phi_fr = wheels[FRONT_RIGHT].joint->GetAngle(0).RADIAN();
+            phi_ml = wheels[MIDDLE_LEFT].joint->GetAngle(0).RADIAN();
+            phi_mr = wheels[MIDDLE_RIGHT].joint->GetAngle(0).RADIAN();
+            phi_rl = wheels[REAR_LEFT].joint->GetAngle(0).RADIAN();
+            phi_rr = wheels[REAR_RIGHT].joint->GetAngle(0).RADIAN();
+
+            vel_phi_fl = wheels[FRONT_LEFT].joint->GetVelocity(0);
+            vel_phi_fr = wheels[FRONT_RIGHT].joint->GetVelocity(0);
+            vel_phi_ml = wheels[MIDDLE_LEFT].joint->GetVelocity(0);
+            vel_phi_mr = wheels[MIDDLE_RIGHT].joint->GetVelocity(0);
+            vel_phi_rl = wheels[REAR_LEFT].joint->GetVelocity(0);
+            vel_phi_rr = wheels[REAR_RIGHT].joint->GetVelocity(0);
+        }
+
+        // limit max dynamic in steering (max delta per step)
+        double steer = maxDeltaFilter(cmd_.steer, steer_old, 0.0025); // TODO: make this parameter configurable
+        steer_old = steer;
+
+        ComputeLocomotion(cmd_.speed, steer, speed_l, speed_r, steer_l, steer_r);
+
+        // only drive, if wheel joint angle error is almost zero
+        double threshold = 5*M_PI/180; // TODO: make this parameter configurable
+        //if (fabs(steer_l  - phi_fl) > threshold || fabs(steer_r  - phi_fr) > threshold ||
+        //    fabs(steer_l + phi_rl) > threshold || fabs(steer_r  + phi_rr) > threshold)
+        if(fabs(cmd_.steer - steer) > threshold )
+        {
+            ROS_DEBUG("error: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", fabs(steer_l  - phi_fl), fabs(steer_r  - phi_fr), fabs(steer_l  + phi_rl), fabs(steer_r  + phi_rr));
+            speed_l = 0.0;
+            speed_r = 0.0;
+        }
+
+        ROS_DEBUG_STREAM_NAMED("all_wheel_steering_plugin", "Wheel commands:\n"
+                               << "speed:  "  << cmd_.speed << "\n"
+                               << "speed left:  " << speed_l << "\n"
+                               << "speed right:  " << speed_r << "\n"
+                               << "steer: " << steer << "\n"
+                               << "steer left: "    << steer_l << "\n"
+                               << "steer right: "   << steer_r);
+
+        // calculate wheel joint pid controller
+        wheels[FRONT_LEFT].jointSpeed   = ( ((steer_l  - phi_fl) * proportionalControllerGain) - vel_phi_fl * derivativeControllerGain);
+        wheels[FRONT_RIGHT].jointSpeed  = ( ((steer_r  - phi_fr) * proportionalControllerGain) - vel_phi_fr * derivativeControllerGain);
+        wheels[MIDDLE_LEFT].jointSpeed  = ( ((0        - phi_ml) * proportionalControllerGain) - vel_phi_ml * derivativeControllerGain); // fixed joint
+        wheels[MIDDLE_RIGHT].jointSpeed = ( ((0        - phi_mr) * proportionalControllerGain) - vel_phi_mr * derivativeControllerGain); // fixed joint
+        wheels[REAR_LEFT].jointSpeed    = ( ((-steer_l - phi_rl) * proportionalControllerGain) - vel_phi_rl * derivativeControllerGain);
+        wheels[REAR_RIGHT].jointSpeed   = ( ((-steer_r - phi_rr) * proportionalControllerGain) - vel_phi_rr * derivativeControllerGain);
+
+        // check wheel joint dynamic
+        if (jointMaxVelocity > 0.0 && fabs(wheels[FRONT_LEFT].jointSpeed) > jointMaxVelocity) wheels[FRONT_LEFT].jointSpeed = (wheels[FRONT_LEFT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+        if (jointMaxVelocity > 0.0 && fabs(wheels[FRONT_RIGHT].jointSpeed) > jointMaxVelocity) wheels[FRONT_RIGHT].jointSpeed = (wheels[FRONT_RIGHT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+        if (jointMaxVelocity > 0.0 && fabs(wheels[MIDDLE_LEFT].jointSpeed) > jointMaxVelocity) wheels[MIDDLE_LEFT].jointSpeed = (wheels[MIDDLE_LEFT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+        if (jointMaxVelocity > 0.0 && fabs(wheels[MIDDLE_RIGHT].jointSpeed) > jointMaxVelocity) wheels[MIDDLE_RIGHT].jointSpeed = (wheels[MIDDLE_RIGHT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+        if (jointMaxVelocity > 0.0 && fabs(wheels[REAR_LEFT].jointSpeed) > jointMaxVelocity) wheels[REAR_LEFT].jointSpeed = (wheels[REAR_LEFT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+        if (jointMaxVelocity > 0.0 && fabs(wheels[REAR_RIGHT].jointSpeed) > jointMaxVelocity) wheels[REAR_RIGHT].jointSpeed = (wheels[REAR_RIGHT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
+
+//        ROS_DEBUG("i: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", phi_fl, phi_fr, phi_rl, phi_rr);
+//        ROS_DEBUG("s: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", vel_phi_fl, vel_phi_fr, vel_phi_rl, vel_phi_rr);
+//        ROS_DEBUG("v: fl: [%f] fr: [%f] rl: [%f] rr: [%f]\n", wheels[FRONT_LEFT].jointSpeed, wheels[FRONT_RIGHT].jointSpeed, wheels[REAR_LEFT].jointSpeed, wheels[REAR_RIGHT].jointSpeed);
+
+        wheels[FRONT_LEFT].wheelSpeed   = speed_l / cos(phi_fl);
+        wheels[FRONT_RIGHT].wheelSpeed  = speed_r / cos(phi_fr);
+        wheels[MIDDLE_LEFT].wheelSpeed  = speed_l;
+        wheels[MIDDLE_RIGHT].wheelSpeed = speed_r;
+        wheels[REAR_LEFT].wheelSpeed    = speed_l / cos(phi_rl);
+        wheels[REAR_RIGHT].wheelSpeed   = speed_r / cos(phi_rr);
+
         // odometry calculation
-        omega_fl = wheels[FRONT_LEFT].axle->GetVelocity(0);
-        omega_fr = wheels[FRONT_RIGHT].axle->GetVelocity(0);
-        omega_ml = wheels[MIDDLE_LEFT].axle->GetVelocity(0);
-        omega_mr = wheels[MIDDLE_RIGHT].axle->GetVelocity(0);
-        omega_rl = wheels[REAR_LEFT].axle->GetVelocity(0);
-        omega_rr = wheels[REAR_RIGHT].axle->GetVelocity(0);
-
-        phi_fl = wheels[FRONT_LEFT].joint->GetAngle(0).RADIAN();
-        phi_fr = wheels[FRONT_RIGHT].joint->GetAngle(0).RADIAN();
-        phi_ml = wheels[MIDDLE_LEFT].joint->GetAngle(0).RADIAN();
-        phi_mr = wheels[MIDDLE_RIGHT].joint->GetAngle(0).RADIAN();
-        phi_rl = wheels[REAR_LEFT].joint->GetAngle(0).RADIAN();
-        phi_rr = wheels[REAR_RIGHT].joint->GetAngle(0).RADIAN();
-
         // Compute angular velocity for ICC which is same as angular velocity of vehicle
         //omega_phi = (omega_fl * sin(phi_fl) * r / b); //+ omega_fr * sin(phi_fr) + omega_rl * sin(-phi_rl) + omega_rr * sin(-phi_rr)) * r / (4 * b);
         omega_phi = ((omega_fl * sin(phi_fl) + omega_fr * sin(phi_fr)) * r) / l;
@@ -282,28 +344,9 @@ void AllWheelSteeringPlugin::Update()
         odomVel[1] = 0.0;
         odomVel[2] = omega_phi;
 
-        //  write_position_data();
         publish_odometry();
         publish_joint_states();
     }
-
-    if (!cmd_.mode.compare("continuous")) {
-        ComputeLocomotion(cmd_.speed, cmd_.steer, speed_l, speed_r, steer_l, steer_r);
-    }
-
-    if (!cmd_.mode.compare("point_turn")) {
-        speed_l = -cmd_.speed / r;
-        speed_r = cmd_.speed / r;
-        steer_l = cos(-M_PI_4);
-        steer_r = cos(M_PI_4);
-    }
-
-    wheels[FRONT_LEFT].wheelSpeed   = speed_l / cos(steer_l);
-    wheels[FRONT_RIGHT].wheelSpeed  = speed_r / cos(steer_r);
-    wheels[MIDDLE_LEFT].wheelSpeed  = speed_l;
-    wheels[MIDDLE_RIGHT].wheelSpeed = speed_r;
-    wheels[REAR_LEFT].wheelSpeed    = speed_l / cos(steer_l);
-    wheels[REAR_RIGHT].wheelSpeed   = speed_r / cos(steer_r);
 
     ROS_DEBUG_STREAM_NAMED("all_wheel_steering_plugin", "Wheel speeds:\n"
                            << "front left:  "  << wheels[FRONT_LEFT].wheelSpeed << "\n"
@@ -321,108 +364,33 @@ void AllWheelSteeringPlugin::Update()
                            << "rear left:  "    << wheels[REAR_LEFT].joint->GetChild()->GetWorldPose() << "\n"
                            << "rear right:  "   << wheels[REAR_RIGHT].joint->GetChild()->GetWorldPose());
 
-    if (enableMotors)
-    {
-        wheels[FRONT_LEFT].joint->SetVelocity(0, wheels[FRONT_LEFT].jointSpeed);
-        wheels[FRONT_RIGHT].joint->SetVelocity(0, wheels[FRONT_RIGHT].jointSpeed);
-        wheels[MIDDLE_LEFT].joint->SetVelocity(0, wheels[MIDDLE_LEFT].jointSpeed);
-        wheels[MIDDLE_RIGHT].joint->SetVelocity(0, wheels[MIDDLE_RIGHT].jointSpeed);
-        wheels[REAR_LEFT].joint->SetVelocity(0, wheels[REAR_LEFT].jointSpeed);
-        wheels[REAR_RIGHT].joint->SetVelocity(0, wheels[REAR_RIGHT].jointSpeed);
+    wheels[FRONT_LEFT].joint->SetVelocity(0, wheels[FRONT_LEFT].jointSpeed);
+    wheels[FRONT_RIGHT].joint->SetVelocity(0, wheels[FRONT_RIGHT].jointSpeed);
+    wheels[MIDDLE_LEFT].joint->SetVelocity(0, wheels[MIDDLE_LEFT].jointSpeed);
+    wheels[MIDDLE_RIGHT].joint->SetVelocity(0, wheels[MIDDLE_RIGHT].jointSpeed);
+    wheels[REAR_LEFT].joint->SetVelocity(0, wheels[REAR_LEFT].jointSpeed);
+    wheels[REAR_RIGHT].joint->SetVelocity(0, wheels[REAR_RIGHT].jointSpeed);
 
-        wheels[FRONT_LEFT].joint->SetMaxForce(0, jointMaxTorque);
-        wheels[FRONT_RIGHT].joint->SetMaxForce(0, jointMaxTorque);
-        wheels[MIDDLE_LEFT].joint->SetMaxForce(0, jointMaxTorque);
-        wheels[MIDDLE_RIGHT].joint->SetMaxForce(0, jointMaxTorque);
-        wheels[REAR_LEFT].joint->SetMaxForce(0, jointMaxTorque);
-        wheels[REAR_RIGHT].joint->SetMaxForce(0, jointMaxTorque);
+    wheels[FRONT_LEFT].joint->SetMaxForce(0, jointMaxTorque);
+    wheels[FRONT_RIGHT].joint->SetMaxForce(0, jointMaxTorque);
+    wheels[MIDDLE_LEFT].joint->SetMaxForce(0, jointMaxTorque);
+    wheels[MIDDLE_RIGHT].joint->SetMaxForce(0, jointMaxTorque);
+    wheels[REAR_LEFT].joint->SetMaxForce(0, jointMaxTorque);
+    wheels[REAR_RIGHT].joint->SetMaxForce(0, jointMaxTorque);
 
-        wheels[FRONT_LEFT].axle->SetVelocity(0, wheels[FRONT_LEFT].wheelSpeed);
-        wheels[FRONT_RIGHT].axle->SetVelocity(0, wheels[FRONT_RIGHT].wheelSpeed);
-        wheels[MIDDLE_LEFT].axle->SetVelocity(0, wheels[MIDDLE_LEFT].wheelSpeed);
-        wheels[MIDDLE_RIGHT].axle->SetVelocity(0, wheels[MIDDLE_RIGHT].wheelSpeed);
-        wheels[REAR_LEFT].axle->SetVelocity(0, wheels[REAR_LEFT].wheelSpeed);
-        wheels[REAR_RIGHT].axle->SetVelocity(0, wheels[REAR_RIGHT].wheelSpeed);
+    wheels[FRONT_LEFT].axle->SetVelocity(0, wheels[FRONT_LEFT].wheelSpeed);
+    wheels[FRONT_RIGHT].axle->SetVelocity(0, wheels[FRONT_RIGHT].wheelSpeed);
+    wheels[MIDDLE_LEFT].axle->SetVelocity(0, wheels[MIDDLE_LEFT].wheelSpeed);
+    wheels[MIDDLE_RIGHT].axle->SetVelocity(0, wheels[MIDDLE_RIGHT].wheelSpeed);
+    wheels[REAR_LEFT].axle->SetVelocity(0, wheels[REAR_LEFT].wheelSpeed);
+    wheels[REAR_RIGHT].axle->SetVelocity(0, wheels[REAR_RIGHT].wheelSpeed);
 
-        wheels[FRONT_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
-        wheels[FRONT_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
-        wheels[MIDDLE_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
-        wheels[MIDDLE_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
-        wheels[REAR_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
-        wheels[REAR_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
-    } else {
-        wheels[FRONT_LEFT].joint->SetMaxForce(0, 0.0);
-        wheels[FRONT_RIGHT].joint->SetMaxForce(0, 0.0);
-        wheels[MIDDLE_LEFT].joint->SetMaxForce(0, 0.0);
-        wheels[MIDDLE_RIGHT].joint->SetMaxForce(0, 0.0);
-        wheels[REAR_LEFT].joint->SetMaxForce(0, 0.0);
-        wheels[REAR_RIGHT].joint->SetMaxForce(0, 0.0);
-        wheels[FRONT_LEFT].axle->SetMaxForce(0, 0.0);
-        wheels[FRONT_RIGHT].axle->SetMaxForce(0, 0.0);
-        wheels[MIDDLE_LEFT].axle->SetMaxForce(0, 0.0);
-        wheels[MIDDLE_RIGHT].axle->SetMaxForce(0, 0.0);
-        wheels[REAR_LEFT].axle->SetMaxForce(0, 0.0);
-        wheels[REAR_RIGHT].axle->SetMaxForce(0, 0.0);
-    }
-}
-
-// NEW: Now uses the target velocities from the ROS message, not the Iface 
-void AllWheelSteeringPlugin::GetPositionCmd()
-{
-    boost::mutex::scoped_lock lock(mutex);
-
-    double current_phi_fl, current_phi_fr, current_phi_ml, current_phi_mr, current_phi_rl, current_phi_rr;
-    double vel_phi_fl, vel_phi_fr, vel_phi_ml, vel_phi_mr, vel_phi_rl, vel_phi_rr;
-    double steer_l, steer_r, speed_l, speed_r;
-
-    current_phi_fl = wheels[FRONT_LEFT].joint->GetAngle(0).RADIAN();
-    current_phi_fr = wheels[FRONT_RIGHT].joint->GetAngle(0).RADIAN();
-    current_phi_ml = wheels[MIDDLE_LEFT].joint->GetAngle(0).RADIAN();
-    current_phi_mr = wheels[MIDDLE_RIGHT].joint->GetAngle(0).RADIAN();
-    current_phi_rl = wheels[REAR_LEFT].joint->GetAngle(0).RADIAN();
-    current_phi_rr = wheels[REAR_RIGHT].joint->GetAngle(0).RADIAN();
-
-    vel_phi_fl = wheels[FRONT_LEFT].joint->GetVelocity(0);
-    vel_phi_fr = wheels[FRONT_RIGHT].joint->GetVelocity(0);
-    vel_phi_ml = wheels[MIDDLE_LEFT].joint->GetVelocity(0);
-    vel_phi_mr = wheels[MIDDLE_RIGHT].joint->GetVelocity(0);
-    vel_phi_rl = wheels[REAR_LEFT].joint->GetVelocity(0);
-    vel_phi_rr = wheels[REAR_RIGHT].joint->GetVelocity(0);
-
-    if (!cmd_.mode.compare("continuous")) {
-        ComputeLocomotion(cmd_.speed, cmd_.steer, speed_l, speed_r, steer_l, steer_r);
-
-        wheels[FRONT_LEFT].jointSpeed   = ( ((steer_l - current_phi_fl) * proportionalControllerGain) - vel_phi_fl * derivativeControllerGain);
-        wheels[FRONT_RIGHT].jointSpeed  = ( ((steer_r - current_phi_fr) * proportionalControllerGain) - vel_phi_fr * derivativeControllerGain);
-        wheels[MIDDLE_LEFT].jointSpeed  = ( ((0  - current_phi_ml) * proportionalControllerGain) - vel_phi_ml* derivativeControllerGain); // fixed joint
-        wheels[MIDDLE_RIGHT].jointSpeed = ( ((0  - current_phi_mr) * proportionalControllerGain) - vel_phi_mr * derivativeControllerGain); // fixed joint
-        wheels[REAR_LEFT].jointSpeed    = ( ((-steer_l  - current_phi_rl) * proportionalControllerGain) - vel_phi_rl * derivativeControllerGain);
-        wheels[REAR_RIGHT].jointSpeed   = ( ((-steer_r  - current_phi_rr) * proportionalControllerGain) - vel_phi_rr * derivativeControllerGain);
-    }
-    if (!cmd_.mode.compare("point_turn")) {
-        wheels[FRONT_LEFT].jointSpeed   = ( ((-M_PI_4 - current_phi_fl) * proportionalControllerGain) - vel_phi_fl * derivativeControllerGain);
-        wheels[FRONT_RIGHT].jointSpeed  = ( ((M_PI_4 - current_phi_fr) * proportionalControllerGain) - vel_phi_fr * derivativeControllerGain);
-        wheels[MIDDLE_LEFT].jointSpeed  = ( ((0  - current_phi_ml) * proportionalControllerGain) - vel_phi_ml * derivativeControllerGain); // fixed joint
-        wheels[MIDDLE_RIGHT].jointSpeed = ( ((0  - current_phi_mr) * proportionalControllerGain) - vel_phi_mr * derivativeControllerGain); // fixed joint
-        wheels[REAR_LEFT].jointSpeed    = ( ((M_PI_4  - current_phi_rl) * proportionalControllerGain) - vel_phi_rl * derivativeControllerGain);
-        wheels[REAR_RIGHT].jointSpeed   = ( ((-M_PI_4  - current_phi_rr) * proportionalControllerGain) - vel_phi_rr * derivativeControllerGain);
-    }
-
-    if (jointMaxVelocity > 0.0 && fabs(wheels[FRONT_LEFT].jointSpeed) > jointMaxVelocity) wheels[FRONT_LEFT].jointSpeed = (wheels[FRONT_LEFT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
-    if (jointMaxVelocity > 0.0 && fabs(wheels[FRONT_RIGHT].jointSpeed) > jointMaxVelocity) wheels[FRONT_RIGHT].jointSpeed = (wheels[FRONT_RIGHT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
-    if (jointMaxVelocity > 0.0 && fabs(wheels[MIDDLE_LEFT].jointSpeed) > jointMaxVelocity) wheels[MIDDLE_LEFT].jointSpeed = (wheels[MIDDLE_LEFT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
-    if (jointMaxVelocity > 0.0 && fabs(wheels[MIDDLE_RIGHT].jointSpeed) > jointMaxVelocity) wheels[MIDDLE_RIGHT].jointSpeed = (wheels[MIDDLE_RIGHT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
-    if (jointMaxVelocity > 0.0 && fabs(wheels[REAR_LEFT].jointSpeed) > jointMaxVelocity) wheels[REAR_LEFT].jointSpeed = (wheels[REAR_LEFT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
-    if (jointMaxVelocity > 0.0 && fabs(wheels[REAR_RIGHT].jointSpeed) > jointMaxVelocity) wheels[REAR_RIGHT].jointSpeed = (wheels[REAR_RIGHT].jointSpeed > 0 ? jointMaxVelocity : -jointMaxVelocity);
-
-    //  ROS_INFO("i: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", current_phi_fl, current_phi_fr, current_phi_rl, current_phi_rr);
-    //  ROS_INFO("s: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", vel_phi_fl, vel_phi_fr, vel_phi_rl, vel_phi_rr);
-    //  ROS_INFO("v: fl: [%f] fr: [%f] rl: [%f] rr: [%f]\n", wheels[FRONT_LEFT].jointSpeed, wheels[FRONT_RIGHT].jointSpeed, wheels[REAR_LEFT].jointSpeed, wheels[REAR_RIGHT].jointSpeed);
-
-    // Changed motors to be always on, which is probably what we want anyway
-    enableMotors = true;
-
-    ROS_DEBUG_STREAM_NAMED("all_wheel_steering_plugin", enableMotors);
+    wheels[FRONT_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
+    wheels[FRONT_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
+    wheels[MIDDLE_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
+    wheels[MIDDLE_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
+    wheels[REAR_LEFT].axle->SetMaxForce(0, wheelMaxTorque);
+    wheels[REAR_RIGHT].axle->SetMaxForce(0, wheelMaxTorque);
 }
 
 void AllWheelSteeringPlugin::ComputeLocomotion(double speed, double steer, double& speed_l, double& speed_r, double& steer_l, double& steer_r)
@@ -528,6 +496,16 @@ void AllWheelSteeringPlugin::publish_joint_states()
     }
 
     jointStatePub_.publish(joint_state);
+}
+
+float AllWheelSteeringPlugin::maxDeltaFilter(float y, float x, float c) {
+    float delta = y-x;
+    float test = x+sgn(delta) * c;
+    return (fabs(delta) > c) ? test : y;
+}
+
+template <typename T> int AllWheelSteeringPlugin::sgn(T val) {
+    return (T(0) < val) - (val < T(0));
 }
 
 } // namespace gazebo

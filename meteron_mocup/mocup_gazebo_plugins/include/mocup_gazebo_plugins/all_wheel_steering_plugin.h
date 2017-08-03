@@ -57,8 +57,9 @@ private:
   void write_position_data();
   void publish_odometry();
   void publish_joint_states();
-  void GetPositionCmd();
   void ComputeLocomotion(double speed, double steer, double &speed_l, double &speed_r, double &steer_l, double &steer_r);
+  float maxDeltaFilter(float y, float x, float c);
+  template <typename T> int sgn(T val);
 
 private:
   // physics
@@ -83,6 +84,7 @@ private:
   float minRadius;
   float maxVelX;
   float jointMaxVelocity;
+  float steer_old;
 
   struct Wheel {
     std::string axleName;
