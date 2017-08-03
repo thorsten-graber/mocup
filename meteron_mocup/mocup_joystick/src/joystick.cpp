@@ -55,15 +55,17 @@ namespace Mocup {
       motionCommand.brake = joystick->buttons[button_brake-1];
     }
 
+    motionCommand.steer =  0.0;
+    if (axis_steer > 0 && (size_t) axis_steer <= joystick->axes.size()) {
+      motionCommand.steer = joystick->axes[axis_steer-1] * steerAngle * M_PI/180.0;
+    }
+
     motionCommand.mode  = "continuous";
     if (button_mode > 0 && (size_t) button_mode <= joystick->buttons.size()) {
       if (joystick->buttons[button_mode-1]) {
           motionCommand.mode  = "point_turn";
+          motionCommand.steer =  M_PI_2;
       }
-    }
-
-    if (axis_steer > 0 && (size_t) axis_steer <= joystick->axes.size()) {
-      motionCommand.steer = joystick->axes[axis_steer-1] * steerAngle * M_PI/180.0;
     }
 
     motionCommandOutput.publish(motionCommand);
