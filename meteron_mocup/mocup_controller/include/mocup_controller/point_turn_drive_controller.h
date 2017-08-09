@@ -48,6 +48,8 @@ public:
         params.getParam("wheelBase", wheelBase);
         wheelTrack = 0.295;
         params.getParam("wheelTrack", wheelTrack);
+
+        initialPointTurn = true;
     }
 
     virtual void executeTwist(const geometry_msgs::Twist& velocity)
@@ -71,7 +73,7 @@ public:
         ROS_DEBUG("carrot_relative_angle: %.5f",carrot_relative_angle);
         ROS_DEBUG("speed: %.1f",speed);
 
-        if (fabs(carrot_relative_angle) > mp_->goal_angle_tolerance) {
+        if ((fabs(carrot_relative_angle) > mp_->goal_angle_tolerance) || (initialPointTurn && fabs(carrot_relative_angle) > mp_->goal_angle_tolerance/4)) {
             // -> point turn to align with target
             float sign;
             if(carrot_relative_angle > 0.0) {
@@ -82,8 +84,8 @@ public:
                 sign = -1.0;
             }
 
-            //ROS_INFO("carrot_relative_angle: %f, goal_angle_tolerance: %f", carrot_relative_angle, mp_->goal_angle_tolerance);
-
+            ROS_INFO("carrot_relative_angle: %f, goal_angle_tolerance: %f", carrot_relative_angle, mp_->goal_angle_tolerance);
+            initialPointTurn = false;
             drive.speed = fabs(speed);
             drive.steer = sign*M_PI_2;
             drivePublisher_.publish(drive);
@@ -98,6 +100,7 @@ public:
 
     virtual void stop()
     {
+        initialPointTurn = true;
         drive.speed = 0.0;
         drivePublisher_.publish(drive);
     }
@@ -167,7 +170,8 @@ protected:
 
     MotionParameters* mp_;
 
-    double max_steerAngle, wheelRadius, wheelBase, wheelTrack;
+    double max_steerAngle, wheelBase, wheelTrack;
+    bool initialPointTurn;
 };
 
 #endif

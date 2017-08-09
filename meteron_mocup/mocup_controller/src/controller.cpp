@@ -388,6 +388,7 @@ void Controller::reset()
   current = 0;
   dt = 0.0;
   legs.clear();
+  vehicle_control_interface_->stop();
 }
 
 void Controller::update()
