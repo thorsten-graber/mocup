@@ -48,6 +48,7 @@ public:
         params.getParam("wheelTrack", wheelTrack);
 
         point_turn = true;
+
     }
 
     virtual void executeTwist(const geometry_msgs::Twist& velocity)
@@ -73,7 +74,6 @@ public:
 
         if ((fabs(carrot_relative_angle) > mp_->goal_angle_tolerance) || (fabs(carrot_relative_angle) > mp_->goal_angle_tolerance/8 && point_turn)) { // todo expose second parameter to launch file
             point_turn = true;
-
             // -> point turn to align with target
             float sign;
             if(carrot_relative_angle > 0.0) {
