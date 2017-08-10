@@ -85,6 +85,7 @@ private:
   float maxVelX;
   float jointMaxVelocity;
   float steer_old;
+  std::string mode_old;
 
   struct Wheel {
     std::string axleName;

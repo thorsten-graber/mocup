@@ -223,6 +223,9 @@ void AllWheelSteeringPlugin::Reset()
     wheels[REAR_LEFT].wheelSpeed = 0;
 
     prevUpdateTime = world->GetSimTime();
+
+    steer_old = 0;
+    mode_old = "";
 }
 
 // Update the controller
@@ -283,13 +286,15 @@ void AllWheelSteeringPlugin::Update()
 
         // only drive, if wheel joint angle error is almost zero
         double threshold = 5*M_PI/180; // TODO: make this parameter configurable
-        //if (fabs(steer_l  - phi_fl) > threshold || fabs(steer_r  - phi_fr) > threshold ||
-        //    fabs(steer_l + phi_rl) > threshold || fabs(steer_r  + phi_rr) > threshold)
-        if(fabs(cmd_.steer - steer) > threshold )
+        if(fabs(cmd_.steer - steer) > threshold && (!cmd_.mode.compare("point_turn") || !mode_old.compare("point_turn")))
         {
+            mode_old = "point_turn";
+
             ROS_DEBUG("error: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", fabs(steer_l  - phi_fl), fabs(steer_r  - phi_fr), fabs(steer_l  + phi_rl), fabs(steer_r  + phi_rr));
             speed_l = 0.0;
             speed_r = 0.0;
+        } else {
+            mode_old = cmd_.mode.c_str();
         }
 
         ROS_DEBUG_STREAM_NAMED("all_wheel_steering_plugin", "Wheel commands:\n"
@@ -419,21 +424,21 @@ void AllWheelSteeringPlugin::ComputeLocomotion(double speed, double steer, doubl
         speed = -maxVelX;
     }
 
-    speed_l = cmd_.speed*(1-b*tan_steer/l);
-    speed_r = cmd_.speed*(1+b*tan_steer/l);
+    speed_l = speed*(1-b*tan_steer/l);
+    speed_r = speed*(1+b*tan_steer/l);
 
     // limit wheel speeds for small radius
-    if(speed_l > maxVelX) {
-        speed_l = maxVelX;
+    if(speed_l > speed) {
+        speed_l = speed;
         speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
-    } else if(speed_l < -maxVelX) {
-        speed_l = -maxVelX;
+    } else if(speed_l < -speed) {
+        speed_l = -speed;
         speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
-    } else if(speed_r > maxVelX) {
-        speed_r = maxVelX;
+    } else if(speed_r > speed) {
+        speed_r = speed;
         speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
-    } else if(speed_r < -maxVelX) {
-        speed_r = -maxVelX;
+    } else if(speed_r < -speed) {
+        speed_r = -speed;
         speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
     }
 

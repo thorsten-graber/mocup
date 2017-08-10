@@ -42,12 +42,12 @@ public:
         ros::NodeHandle nh;
         drivePublisher_ = nh.advertise<mocup_msgs::MotionCommand>("drive", 1);
 
-        max_steerAngle = M_PI_2; // 90 deg
-        params.getParam("max_steerAngle", max_steerAngle);
         wheelBase = 0.304;
         params.getParam("wheelBase", wheelBase);
         wheelTrack = 0.295;
         params.getParam("wheelTrack", wheelTrack);
+
+        point_turn = true;
     }
 
     virtual void executeTwist(const geometry_msgs::Twist& velocity)
@@ -71,7 +71,9 @@ public:
         ROS_DEBUG("carrot_relative_angle: %.5f",carrot_relative_angle);
         ROS_DEBUG("speed: %.1f",speed);
 
-        if (fabs(carrot_relative_angle) > mp_->goal_angle_tolerance) {
+        if ((fabs(carrot_relative_angle) > mp_->goal_angle_tolerance) || (fabs(carrot_relative_angle) > mp_->goal_angle_tolerance/8 && point_turn)) { // todo expose second parameter to launch file
+            point_turn = true;
+
             // -> point turn to align with target
             float sign;
             if(carrot_relative_angle > 0.0) {
@@ -82,22 +84,28 @@ public:
                 sign = -1.0;
             }
 
-            //ROS_INFO("carrot_relative_angle: %f, goal_angle_tolerance: %f", carrot_relative_angle, mp_->goal_angle_tolerance);
+            ROS_DEBUG("carrot_relative_angle: %f, mode: point_turn", carrot_relative_angle);
 
-            drive.speed = fabs(speed);
+            drive.speed = fabs(speed)/10; //todo:expose parameter to launch file
             drive.steer = sign*M_PI_2;
+            drive.mode = "point_turn";
             drivePublisher_.publish(drive);
             return;
         }
 
+        ROS_DEBUG("carrot_relative_angle: %f, mode: contineous", carrot_relative_angle);
+        point_turn = false;
+
         // relative angle OK, drive straight to target
         drive.speed = fabs(speed);
         drive.steer = 0.0;
+        drive.mode = "continuous";
         drivePublisher_.publish(drive);
     }
 
     virtual void stop()
     {
+        point_turn = true;
         drive.speed = 0.0;
         drivePublisher_.publish(drive);
     }
@@ -167,7 +175,8 @@ protected:
 
     MotionParameters* mp_;
 
-    double max_steerAngle, wheelRadius, wheelBase, wheelTrack;
+    double wheelRadius, wheelBase, wheelTrack;
+    bool point_turn;
 };
 
 #endif
