@@ -278,15 +278,30 @@ void AllWheelSteeringPlugin::Update()
             vel_phi_rr = wheels[REAR_RIGHT].joint->GetVelocity(0);
         }
 
-        // limit max dynamic in steering (max delta per step)
-        double steer = maxDeltaFilter(cmd_.steer, steer_old, 0.0025); // TODO: make this parameter configurable
-        steer_old = steer;
+            if (!cmd_.mode.compare("continuous")) {
+                // limit max dynamic in steering (max delta per step)
+                double steer = maxDeltaFilter(cmd_.steer, steer_old, 0.0025); // TODO: make this parameter configurable
+                steer_old = steer;
 
-        ComputeLocomotion(cmd_.speed, steer, speed_l, speed_r, steer_l, steer_r);
+                ComputeLocomotion(cmd_.speed, steer, speed_l, speed_r, steer_l, steer_r);
+
+            } else if (!cmd_.mode.compare("point_turn")) {
+             steer_l = -M_PI_4;
+             steer_r = M_PI_4;
+             speed_l = -cmd_.speed / r;
+             speed_r = cmd_.speed / r;
+             steer_old = 0;
+            } else {
+                ROS_WARN("No command received, or unknown command mode set - stopping rover!");
+                steer_l = 0;
+                steer_r = 0;
+                speed_l = 0;
+                speed_r = 0;
+            }
 
         // only drive, if wheel joint angle error is almost zero
-        double threshold = 5*M_PI/180; // TODO: make this parameter configurable
-        if(fabs(cmd_.steer - steer) > threshold && (!cmd_.mode.compare("point_turn") || !mode_old.compare("point_turn")))
+        double threshold = M_PI/180; // TODO: make this parameter configurable
+        if ((fabs(steer_l  - phi_fl) > threshold || fabs(steer_r  - phi_fr) > threshold) && (!cmd_.mode.compare("point_turn") || !mode_old.compare("point_turn")))
         {
             mode_old = "point_turn";
 
@@ -296,14 +311,6 @@ void AllWheelSteeringPlugin::Update()
         } else {
             mode_old = cmd_.mode.c_str();
         }
-
-        ROS_DEBUG_STREAM_NAMED("all_wheel_steering_plugin", "Wheel commands:\n"
-                               << "speed:  "  << cmd_.speed << "\n"
-                               << "speed left:  " << speed_l << "\n"
-                               << "speed right:  " << speed_r << "\n"
-                               << "steer: " << steer << "\n"
-                               << "steer left: "    << steer_l << "\n"
-                               << "steer right: "   << steer_r);
 
         // calculate wheel joint pid controller
         wheels[FRONT_LEFT].jointSpeed   = ( ((steer_l  - phi_fl) * proportionalControllerGain) - vel_phi_fl * derivativeControllerGain);

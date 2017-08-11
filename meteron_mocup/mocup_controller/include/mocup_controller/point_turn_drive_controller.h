@@ -86,8 +86,8 @@ public:
 
             ROS_DEBUG("carrot_relative_angle: %f, mode: point_turn", carrot_relative_angle);
 
-            drive.speed = fabs(speed)/10; //todo:expose parameter to launch file
-            drive.steer = sign*M_PI_2;
+            drive.speed = sign*fabs(speed)/10; //todo:expose parameter to launch file
+            drive.steer = M_PI_4;
             drive.mode = "point_turn";
             drivePublisher_.publish(drive);
             return;

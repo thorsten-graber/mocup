@@ -64,7 +64,7 @@ namespace Mocup {
     if (button_mode > 0 && (size_t) button_mode <= joystick->buttons.size()) {
       if (joystick->buttons[button_mode-1]) {
           motionCommand.mode  = "point_turn";
-          motionCommand.steer =  M_PI_2;
+          motionCommand.steer =  M_PI_4;
       }
     }
 
