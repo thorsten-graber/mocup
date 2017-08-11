@@ -312,6 +312,14 @@ void AllWheelSteeringPlugin::Update()
             mode_old = cmd_.mode.c_str();
         }
 
+        ROS_DEBUG_STREAM_NAMED("all_wheel_steering_plugin", "Wheel commands:\n"
+                               << "speed:  "  << cmd_.speed << "\n"
+                               << "speed left:  " << speed_l << "\n"
+                               << "speed right:  " << speed_r << "\n"
+                               << "steer: " << cmd_.steer << "\n"
+                               << "steer left: "    << steer_l << "\n"
+                               << "steer right: "   << steer_r);
+
         // calculate wheel joint pid controller
         wheels[FRONT_LEFT].jointSpeed   = ( ((steer_l  - phi_fl) * proportionalControllerGain) - vel_phi_fl * derivativeControllerGain);
         wheels[FRONT_RIGHT].jointSpeed  = ( ((steer_r  - phi_fr) * proportionalControllerGain) - vel_phi_fr * derivativeControllerGain);
@@ -342,14 +350,14 @@ void AllWheelSteeringPlugin::Update()
         // odometry calculation
         // Compute angular velocity for ICC which is same as angular velocity of vehicle
         //omega_phi = (omega_fl * sin(phi_fl) * r / b); //+ omega_fr * sin(phi_fr) + omega_rl * sin(-phi_rl) + omega_rr * sin(-phi_rr)) * r / (4 * b);
-        omega_phi = ((omega_fl * sin(phi_fl) + omega_fr * sin(phi_fr)) * r) / l;
+        omega_phi = (omega_fl * sin(phi_fl) + omega_fr * sin(phi_fr))* r / l;
 
         v = r * (omega_ml + omega_mr)/2;
 
         // Compute odometric pose
         odomPose[0] += v * stepTime.Double() * cos(odomPose[2]);
         odomPose[1] += v * stepTime.Double() * sin(odomPose[2]);
-        odomPose[2] += omega_phi * stepTime.Double() * 0.9;  //TODO MAGIC NUMBER
+        odomPose[2] += omega_phi * stepTime.Double() * 0.973;  //TODO MAGIC NUMBER
 
         // Compute odometric instantaneous velocity
         odomVel[0] = v;
@@ -425,29 +433,29 @@ void AllWheelSteeringPlugin::ComputeLocomotion(double speed, double steer, doubl
     steer_l = atan2(l*tan_steer,l-b*tan_steer);
     steer_r = atan2(l*tan_steer,l+b*tan_steer);
 
-    if (speed > maxVelX) {
-        speed = maxVelX;
-    } else if (speed < -maxVelX) {
-        speed = -maxVelX;
-    }
+//    if (speed > maxVelX) {
+//        speed = maxVelX;
+//    } else if (speed < -maxVelX) {
+//        speed = -maxVelX;
+//    }
 
     speed_l = speed*(1-b*tan_steer/l);
     speed_r = speed*(1+b*tan_steer/l);
 
-    // limit wheel speeds for small radius
-    if(speed_l > speed) {
-        speed_l = speed;
-        speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
-    } else if(speed_l < -speed) {
-        speed_l = -speed;
-        speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
-    } else if(speed_r > speed) {
-        speed_r = speed;
-        speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
-    } else if(speed_r < -speed) {
-        speed_r = -speed;
-        speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
-    }
+//    // limit wheel speeds for small radius
+//    if(speed_l > speed) {
+//        speed_l = speed;
+//        speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+//    } else if(speed_l < -speed) {
+//        speed_l = -speed;
+//        speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+//    } else if(speed_r > speed) {
+//        speed_r = speed;
+//        speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
+//    } else if(speed_r < -speed) {
+//        speed_r = -speed;
+//        speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
+//    }
 
     speed_l /= r;
     speed_r /= r;
