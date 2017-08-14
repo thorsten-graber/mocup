@@ -433,23 +433,29 @@ void AllWheelSteeringPlugin::ComputeLocomotion(double speed, double steer, doubl
     steer_l = atan2(l*tan_steer,l-b*tan_steer);
     steer_r = atan2(l*tan_steer,l+b*tan_steer);
 
+//    if (speed > maxVelX) {
+//        speed = maxVelX;
+//    } else if (speed < -maxVelX) {
+//        speed = -maxVelX;
+//    }
+
     speed_l = speed*(1-b*tan_steer/l);
     speed_r = speed*(1+b*tan_steer/l);
 
-    // limit wheel speeds for small radius
-    if(fabs(speed_l) > maxVelX || fabs(speed_r) > maxVelX) {
-        float sign = (speed < 0) ? -1.0 : 1.0;
-
-        if(fabs(speed_l) > fabs(speed_r)) {
-            // turn front right or back left
-            speed_l = sign*maxVelX;
-            speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
-        } else {
-            // turn front left ob back right
-            speed_l = sign*maxVelX;
-            speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
-        }
-    }
+//    // limit wheel speeds for small radius
+//    if(speed_l > speed) {
+//        speed_l = speed;
+//        speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+//    } else if(speed_l < -speed) {
+//        speed_l = -speed;
+//        speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+//    } else if(speed_r > speed) {
+//        speed_r = speed;
+//        speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
+//    } else if(speed_r < -speed) {
+//        speed_r = -speed;
+//        speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
+//    }
 
     speed_l /= r;
     speed_r /= r;
