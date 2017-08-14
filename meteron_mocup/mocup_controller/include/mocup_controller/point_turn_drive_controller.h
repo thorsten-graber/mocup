@@ -47,8 +47,7 @@ public:
         wheelTrack = 0.295;
         params.getParam("wheelTrack", wheelTrack);
 
-        point_turn = true;
-
+        reset();
     }
 
     virtual void executeTwist(const geometry_msgs::Twist& velocity)
@@ -61,9 +60,13 @@ public:
 //        float tan_gamma = velocity.linear.y / velocity.linear.x;
 //        setDriveCommand(speed, omega, tan_gamma);
 
+//          float omega = velocity.angular.z;
+//          float atan_gamma = atan2(velocity.linear.y / velocity.linear.x);
+//          publishDriveCommand(speed, omega, atan_gamma);
+
           float omega = velocity.angular.z;
-          float atan_gamma = atan(velocity.linear.y / velocity.linear.x);
-          publishDriveCommand(speed, omega, atan_gamma);
+          float atan_gamma = atan2(velocity.linear.y , velocity.linear.x);
+          driveCommand(speed, omega, atan_gamma);
 
     }
 
@@ -105,9 +108,13 @@ public:
 
     virtual void stop()
     {
-        point_turn = true;
         drive.speed = 0.0;
         drivePublisher_.publish(drive);
+    }
+
+    virtual void reset()
+    {
+        point_turn = true;
     }
 
     virtual double getCommandedSpeed() const
@@ -118,6 +125,34 @@ public:
     virtual std::string getName()
     {
         return "Point Turn Drive Controller";
+    }
+
+    void driveCommand(float speed, float omega, float atan_gamma) {
+        float l, b;
+
+        b = wheelTrack;
+        l = wheelBase;
+
+        float A,B;
+
+        if(speed != 0.0 || omega != 0.0) {
+            float sign = (omega < 0) ? -1.0 : 1.0;
+
+            A = (omega*b/2) / (speed+(omega*b/2));
+            B = speed / (speed+(omega*b/2));
+
+            drive.speed = A * (omega*b/2)   + B * speed;
+            drive.steer = A * sign * M_PI_2 + B * atan_gamma;
+            drive.mode  = "continuous";
+        } else {
+            drive.speed = 0.0;
+            drive.steer = 0.0;
+            drive.mode  = "continuous";
+        }
+
+        ROS_INFO("A: %f, B: %f", A, B);
+
+        drivePublisher_.publish(drive);
     }
 
     void setDriveCommand(float speed, float omega, float tan_gamma) {

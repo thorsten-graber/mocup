@@ -82,6 +82,10 @@ class DifferentialDriveController: public VehicleControlInterface
       cmdVelRawPublisher_.publish(twist);
     }
 
+    virtual void reset()
+    {
+    }
+
     virtual double getCommandedSpeed() const
     {
       return twist.linear.x;

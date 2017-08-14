@@ -38,6 +38,7 @@ class VehicleControlInterface
     virtual void executeTwist(const geometry_msgs::Twist& twist) = 0;
     virtual void executeMotionCommand(double carrot_relative_angle, double carrot_orientation_error, double carrot_distance, double speed) = 0;
     virtual void stop() = 0;
+    virtual void reset() = 0;
     virtual double getCommandedSpeed() const = 0;
     virtual std::string getName() = 0;
 };

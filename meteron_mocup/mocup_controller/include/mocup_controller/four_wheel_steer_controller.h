@@ -83,6 +83,10 @@ class FourWheelSteerController: public VehicleControlInterface
       drivePublisher_.publish(drive);
     }
 
+    virtual void reset()
+    {
+    }
+
     virtual double getCommandedSpeed() const
     {
       return drive.speed;
