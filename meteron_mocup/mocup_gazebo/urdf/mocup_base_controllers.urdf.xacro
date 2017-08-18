@@ -29,7 +29,6 @@
       <wheelMaxTorque>10</wheelMaxTorque>
       <jointMaxVelocity>0.33</jointMaxVelocity>
       <maxVelX>0.1</maxVelX>
-      <robotNamespace>/</robotNamespace>
       <topicName>drive</topicName>
       <jointStateName>joint_states</jointStateName>
     </plugin>
@@ -54,7 +53,6 @@
         <secondServoName>camera/y</secondServoName>
         <secondServoAxis>0 1 0</secondServoAxis>
         <torque>0.5</torque>
-        <robotNamespace>/</robotNamespace>
         <topicName>camera/command</topicName>
         <jointStateName>joint_states</jointStateName>
         <proportionalControllerGain>8.0</proportionalControllerGain>
