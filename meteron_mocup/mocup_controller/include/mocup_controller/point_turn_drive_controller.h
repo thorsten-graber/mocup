@@ -56,17 +56,14 @@ public:
         float speed = backward * sqrt(velocity.linear.x*velocity.linear.x + velocity.linear.y*velocity.linear.y);
         mp_->limitSpeed(speed);
 
-//        float omega = velocity.angular.z;
-//        float tan_gamma = velocity.linear.y / velocity.linear.x;
-//        setDriveCommand(speed, omega, tan_gamma);
+        float omega = velocity.angular.z;
+        float atan_gamma = (velocity.linear.x == 0.0 && velocity.linear.y == 0.0) ? 0.0 : atan2(velocity.linear.y , velocity.linear.x);
+
+        publishDriveCommand(speed, omega, atan_gamma);
 
 //          float omega = velocity.angular.z;
-//          float atan_gamma = atan2(velocity.linear.y / velocity.linear.x);
-//          publishDriveCommand(speed, omega, atan_gamma);
-
-          float omega = velocity.angular.z;
-          float atan_gamma = atan2(velocity.linear.y , velocity.linear.x);
-          driveCommand(speed, omega, atan_gamma);
+//          float atan_gamma = atan2(velocity.linear.y , velocity.linear.x);
+//          setDriveCommand(speed, omega, atan_gamma);
 
     }
 
@@ -127,13 +124,26 @@ public:
         return "Point Turn Drive Controller";
     }
 
-    void driveCommand(float speed, float omega, float atan_gamma) {
-        float l, b;
+    void publishDriveCommand(float speed, float omega, float atan_gamma) {
+        float l = wheelBase;
+        float b = wheelTrack;
 
-        b = wheelTrack;
-        l = wheelBase;
+        float sign = (speed < 0) ? -1.0 : 1.0;
+        drive.steer = sign*atan_gamma + atan2((omega*l),(2*fabs(speed)));
+        if(speed != 0.0) {
+            drive.speed = speed;
+        } else {
+            drive.speed = omega * b;
+        }
+        mp_->limitSpeed(drive.speed);
+        drive.mode = "continuous";
 
+        drivePublisher_.publish(drive);
+    }
+
+    void setDriveCommand(float speed, float omega, float atan_gamma) {
         float A,B;
+        float b = wheelTrack;
 
         if(speed != 0.0 || omega != 0.0) {
             float sign = (omega < 0) ? -1.0 : 1.0;
@@ -151,54 +161,6 @@ public:
         }
 
         ROS_INFO("A: %f, B: %f", A, B);
-
-        drivePublisher_.publish(drive);
-    }
-
-    void setDriveCommand(float speed, float omega, float tan_gamma) {
-
-        float l, b;
-        float speed_l, speed_r;
-
-        b = wheelTrack;
-        l = wheelBase;
-
-        speed_l = 0.0;
-        speed_r = 0.0;
-
-        if(speed != 0.0) {
-            speed_l = speed*(1+b*tan_gamma/l);
-            speed_r = speed*(1-b*tan_gamma/l);
-        }
-        if(omega != 0.0) {
-            speed_l += -omega * b;
-            speed_r +=  omega * b;
-        }
-
-        if(speed_l == speed_r) {
-            drive.steer = 0.0;
-        } else {
-            drive.steer = atan(((speed_r - speed_l)*l)/((speed_l + speed_r)*b));
-            if(speed < 0) drive.steer = atan(((speed_l - speed_r)*l)/((speed_r + speed_l)*b));
-        }
-
-        drive.speed = speed + fabs(omega*b);
-        mp_->limitSpeed(drive.speed);
-        drive.mode = "continuous";
-
-        drivePublisher_.publish(drive);
-    }
-
-    void publishDriveCommand(float speed, float omega, float atan_gamma) {
-        float l = wheelBase;
-
-        float sign = (speed < 0) ? -1.0 : 1.0;
-        drive.steer = sign*atan_gamma + atan((omega*l)/(2*fabs(speed)));
-        if(speed == 0.0) drive.steer = 0;
-
-        drive.speed = speed;
-        mp_->limitSpeed(drive.speed);
-        drive.mode = "continuous";
 
         drivePublisher_.publish(drive);
     }
