@@ -292,7 +292,7 @@ void AllWheelSteeringPlugin::Update()
              speed_r = cmd_.speed / r;
              steer_old = 0;
             } else {
-                ROS_WARN("No command received, or unknown command mode set - stopping rover!");
+                ROS_WARN_ONCE("No command received, or unknown command mode set - stopping rover!");
                 steer_l = 0;
                 steer_r = 0;
                 speed_l = 0;
