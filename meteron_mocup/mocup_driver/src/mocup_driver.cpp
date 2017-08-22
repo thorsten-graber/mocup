@@ -71,14 +71,7 @@ Driver::Driver(const std::string& ns)
     motor_control_parameters.motor_states.effort.resize(14);
     motor_control_parameters.motor_states.position.resize(14);
     motor_control_parameters.motor_states.velocity.resize(14);
-}
 
-Driver::~Driver()
-{
-}
-
-bool Driver::configure()
-{
     ros::NodeHandle params("~");
     params.getParam("min_velocity", motor_control_parameters.min_velocity);
     params.getParam("max_velocity", motor_control_parameters.max_velocity);
@@ -94,11 +87,9 @@ bool Driver::configure()
     timer = nh.createTimer(ros::Duration(0.02),&Driver::update,this);
 
     reset();
-
-    return true;
 }
 
-void Driver::cleanup()
+Driver::~Driver()
 {
 }
 
@@ -112,7 +103,7 @@ void Driver::reset()
     motor_control_parameters.control_input.cam_yaw = 0;
     motor_control_parameters.control_input.cam_pit = 0;
 
-    alpha_old = 0;
+    steer_old = 0;
 
     // reset sensor readings
     previous_readings.stamp = ros::Time::now();
@@ -182,66 +173,42 @@ void Driver::update(const ros::TimerEvent&)
 
 void Driver::motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg)
 {
+    float steer_l, steer_r, speed_r, speed_l;
+
+    float r = motor_control_parameters.wheel_radius;
+
     float cmd_vel = limitVelocity(cmd_msg.speed);
 
     // update desired motor velocity/position based on control mode
     if(!strcmp(cmd_msg.mode.c_str(), "continuous")) {
-        double alpha    = (double)cmd_msg.steer;
-        if(alpha > M_PI_2) {
-            alpha = M_PI_2;
-        } else if(alpha < -M_PI_2) {
-            alpha = -M_PI_2;
-        }
+        // limit max dynamic in steering (max delta per step)
+        float steer = maxDeltaFilter(cmd_msg.steer, steer_old, 0.0025); // TODO: make this parameter configurable
+        steer_old = steer;
 
-        // limit wheel speed according to actual steer angles due to the low dynamics
-        alpha = maxDeltaFilter(alpha, alpha_old, 0.0025);
-        alpha_old = alpha;
+        ComputeLocomotion(cmd_vel, steer, speed_l, speed_r, steer_l, steer_r);
 
-        double tan_alpha = tan(alpha);
-        double b = motor_control_parameters.chassis_width;
-        double l = motor_control_parameters.chassis_length;
-        double steer_l = atan2(l*tan_alpha,l-b*tan_alpha);
-        double steer_r = atan2(l*tan_alpha,l+b*tan_alpha);
-
-        motor_control_parameters.control_input.steer_r = roundRadToDeg(steer_r);
-        motor_control_parameters.control_input.steer_l = roundRadToDeg(steer_l);
-
-        double speed_l = cmd_vel*(1-b*tan_alpha/l);
-        double speed_r = cmd_vel*(1+b*tan_alpha/l);
-
-        // limit wheel speeds for small radius
-        if(speed_l > motor_control_parameters.max_velocity) {
-            speed_l = motor_control_parameters.max_velocity;
-            speed_r = speed_l*(l+b*tan_alpha)/(l-b*tan_alpha);
-        } else if(speed_l < -motor_control_parameters.max_velocity) {
-            speed_l = -motor_control_parameters.max_velocity;
-            speed_r = speed_l*(l+b*tan_alpha)/(l-b*tan_alpha);
-        } else if(speed_r > motor_control_parameters.max_velocity) {
-            speed_r = motor_control_parameters.max_velocity;
-            speed_l = speed_r*(l-b*tan_alpha)/(l+b*tan_alpha);
-        } else if(speed_r < -motor_control_parameters.max_velocity) {
-            speed_r = -motor_control_parameters.max_velocity;
-            speed_l = speed_r*(l-b*tan_alpha)/(l+b*tan_alpha);
-        }
-
-        // Velocity [m/s] to PWM (max velocity = 255 pwm)
-        int16_t pwm_l = floatToInt(speed_l);
-        int16_t pwm_r = floatToInt(speed_r);
-        motor_control_parameters.control_input.speed_r = pwm_r;
-        motor_control_parameters.control_input.speed_l = pwm_l;
+    } else if (!cmd_msg.mode.compare("point_turn")) {
+        steer_l = -M_PI_4;
+        steer_r = M_PI_4;
+        speed_l = -cmd_vel / r;
+        speed_r = cmd_vel/ r;
+        steer_old = 0;
+    } else {
+        ROS_WARN_ONCE("No command received, or unknown command mode set - stopping rover!");
+        steer_l = 0;
+        steer_r = 0;
+        speed_l = 0;
+        speed_r = 0;
     }
-    if(!strcmp(cmd_msg.mode.c_str(), "point_turn")) {
-        int16_t pwm = floatToInt(cmd_vel);
 
-        // limit wheel speed according to actual steer angles due to the low dynamics
-        double alpha = maxDeltaFilter(M_PI_4, alpha_old, 0.0025);
-        alpha_old = alpha;
+    motor_control_parameters.control_input.steer_r = roundRadToDeg(steer_r);
+    motor_control_parameters.control_input.steer_l = roundRadToDeg(steer_l);
 
-        motor_control_parameters.control_input.speed_r =  pwm;
-        motor_control_parameters.control_input.steer_r =  roundRadToDeg(alpha);
-        motor_control_parameters.control_input.speed_l = -pwm;
-        motor_control_parameters.control_input.steer_l = -roundRadToDeg(alpha);
-    }
+    // Velocity [m/s] to PWM (max velocity = 255 pwm)
+    int16_t pwm_l = floatToInt(speed_l);
+    int16_t pwm_r = floatToInt(speed_r);
+    motor_control_parameters.control_input.speed_r = pwm_r;
+    motor_control_parameters.control_input.speed_l = pwm_l;
 }
 
 void Driver::cameraCommandCallback(const geometry_msgs::QuaternionStamped& cmd_msg)
@@ -284,14 +251,14 @@ void Driver::readSensorsCallback(const mocup_msgs::RawSensors &sensor_msg) {
 
 void Driver::publishOdometry()
 {
-    double b, r;
+    double l, r;
     double alpha_l, alpha_r;
     double x, y, yaw;
     double phi_l, phi_r;
     double s;
 
     // vehicle geometry
-    b = motor_control_parameters.chassis_width;
+    l = motor_control_parameters.chassis_length;
     r = motor_control_parameters.wheel_radius;
 
     alpha_r = degToRad(posToDeg(actual_readings.motor.position.right_wheel_joint - previous_readings.motor.position.right_wheel_joint));
@@ -300,7 +267,7 @@ void Driver::publishOdometry()
     phi_l   = actual_readings.motor.angle.left_suspension_wheel_joint;
 
     // Compute angular velocity for ICC which is same as angular velocity of vehicle
-    yaw = ((alpha_l * sin(phi_l) + alpha_r * sin(phi_r))* r) / b;
+    yaw = (alpha_l * sin(phi_l) + alpha_r * sin(phi_r))* r / l;
 
     // Compute translation using previous yaw angle using last pose
     double euler[3];
@@ -373,6 +340,33 @@ void Driver::publishJointStates()
     joint_state_publisher.publish(motor_control_parameters.motor_states);
 }
 
+void Driver::ComputeLocomotion(float speed, float steer, float &speed_l, float &speed_r, float &steer_l, float &steer_r)
+{
+    float l, b, r;
+    float tan_steer;
+
+    b = motor_control_parameters.chassis_width;
+    l = motor_control_parameters.chassis_length;
+    r = motor_control_parameters.wheel_radius;
+
+    if(steer > M_PI_2) {
+        tan_steer = tan(M_PI_2);
+    } else if(steer < -M_PI_2) {
+        tan_steer = tan(-M_PI_2);
+    } else {
+        tan_steer = tan(steer);
+    }
+
+    steer_l = atan2(l*tan_steer,l-b*tan_steer);
+    steer_r = atan2(l*tan_steer,l+b*tan_steer);
+
+    speed_l = speed*(1-b*tan_steer/l);
+    speed_r = speed*(1+b*tan_steer/l);
+
+    speed_l /= r;
+    speed_r /= r;
+}
+
 float Driver::limitVelocity(float value) { //todo check if cases
     float velocity = value;
     if (value > 0.0) {
@@ -403,12 +397,10 @@ int main(int argc, char **argv)
     ros::init(argc, argv, ROS_PACKAGE_NAME);
 
     Driver d;
-    d.configure();
     while(ros::ok())
     {
         ros::spin();
     }
-    d.cleanup();
 
     ros::shutdown();
     return 0;

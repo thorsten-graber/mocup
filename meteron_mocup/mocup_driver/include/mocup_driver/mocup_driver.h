@@ -16,13 +16,13 @@ public:
         float min_velocity;
         float max_velocity;
         float min_object_distance;
-        double chassis_width;
-        double chassis_length;
-        double wheel_radius;
-        double wheel_gear;
-        double stearing_gear;
-        double camera_pan_gear;
-        double camera_tilt_gear;
+        float chassis_width;
+        float chassis_length;
+        float wheel_radius;
+        float wheel_gear;
+        float stearing_gear;
+        float camera_pan_gear;
+        float camera_tilt_gear;
         mocup_msgs::MotorCommand control_input;
         sensor_msgs::JointState motor_states;
     } MotorControlParameters;
@@ -65,28 +65,25 @@ public:
     } Sensors;
 
     Driver(const std::string &ns = std::string());
-    virtual ~Driver();
+    ~Driver();
 
-    friend int main(int, char**);
+    int main(int, char**);
+    void update(const ros::TimerEvent&);
 
-protected:
-    virtual bool configure();
-    virtual void update(const ros::TimerEvent&);
-    virtual void reset();
-    virtual void stop();
-    virtual void cleanup();
+    void reset();
+    void stop();
 
-    virtual float limitVelocity(float speed);
-    virtual int16_t floatToInt(float value);
+    void ComputeLocomotion(float speed, float steer, float& speed_l, float& speed_r, float& steer_l, float& steer_r);
+    float limitVelocity(float speed);
+    int16_t floatToInt(float value);
 
-    virtual void motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg);
-    virtual void cameraCommandCallback(const geometry_msgs::QuaternionStamped& cmd_msg);
-    virtual void readSensorsCallback(const mocup_msgs::RawSensors &sensor_msg);
+    void motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg);
+    void cameraCommandCallback(const geometry_msgs::QuaternionStamped& cmd_msg);
+    void readSensorsCallback(const mocup_msgs::RawSensors &sensor_msg);
 
-    virtual void publishOdometry();
-    virtual void publishJointStates();
+    void publishOdometry();
+    void publishJointStates();
 
-private:
     ros::NodeHandle nh;
     ros::Timer timer;
 
@@ -107,7 +104,7 @@ private:
     ros::Subscriber camera_command_subscriber;
     ros::Subscriber read_sensors_subscriber;
 
-    double alpha_old;
+    float steer_old;
 };
 
 #endif // MOCUP_DRIVER_H
