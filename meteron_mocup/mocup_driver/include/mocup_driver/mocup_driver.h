@@ -13,25 +13,25 @@
 class Driver {
 public:
     typedef struct {
-        float min_velocity;
-        float max_velocity;
-        float min_object_distance;
-        float chassis_width;
-        float chassis_length;
-        float wheel_radius;
-        float wheel_gear;
-        float stearing_gear;
-        float camera_pan_gear;
-        float camera_tilt_gear;
+        double min_velocity;
+        double max_velocity;
+        double min_object_distance;
+        double chassis_width;
+        double chassis_length;
+        double wheel_radius;
+        double wheel_gear;
+        double stearing_gear;
+        double camera_pan_gear;
+        double camera_tilt_gear;
         mocup_msgs::MotorCommand control_input;
         sensor_msgs::JointState motor_states;
     } MotorControlParameters;
 
     typedef struct {
-        float range_fl;
-        float range_fr;
-        float range_rl;
-        float range_rr;
+        double range_fl;
+        double range_fr;
+        double range_rl;
+        double range_rr;
     } UltraSonic;
 
     typedef struct {
@@ -73,12 +73,11 @@ public:
     void reset();
     void stop();
 
-    void ComputeLocomotion(float speed, float steer, float& speed_l, float& speed_r, float& steer_l, float& steer_r);
-    float limitVelocity(float speed);
-    int16_t floatToInt(float value);
+    void ComputeLocomotion(double speed, double steer, double& speed_l, double& speed_r, double& steer_l, double& steer_r);
+    double limitVelocity(double speed);
 
-    void motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg);
-    void cameraCommandCallback(const geometry_msgs::QuaternionStamped& cmd_msg);
+    void motionCommandCallback(const mocup_msgs::MotionCommand::ConstPtr& motion_cmd_msg);
+    void cameraCommandCallback(const geometry_msgs::QuaternionStamped::ConstPtr& camera_cmd_msg);
     void readSensorsCallback(const mocup_msgs::RawSensors &sensor_msg);
 
     void publishOdometry();
@@ -87,6 +86,8 @@ public:
     ros::NodeHandle nh;
     ros::Timer timer;
 
+    mocup_msgs::MotionCommand motion_cmd;
+    geometry_msgs::QuaternionStamped camera_cmd;
     MotorControlParameters motor_control_parameters;
     Sensors actual_readings;
     Sensors previous_readings;
@@ -104,7 +105,9 @@ public:
     ros::Subscriber camera_command_subscriber;
     ros::Subscriber read_sensors_subscriber;
 
-    float steer_old;
+    boost::mutex mutex;
+    double steer_old;
+    std::string mode_old;
 };
 
 #endif // MOCUP_DRIVER_H

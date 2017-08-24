@@ -8,7 +8,7 @@
 #include <nav_msgs/Path.h>
 #include <mocup_msgs/MotionCommand.h>
 #include <mocup_msgs/SetAlternativeTolerance.h>
-#include <std_msgs/Float32.h>
+#include <std_msgs/Float64.h>
 
 //#include <hector_move_base_msgs/MoveBaseActionGeneric.h>
 //#include <hector_move_base_msgs/MoveBaseActionGoal.h>
@@ -26,21 +26,21 @@ class Controller {
 public:
   typedef enum { INACTIVE, VELOCITY, DRIVETO, DRIVEPATH } State;
   typedef struct {
-    float x;
-    float y;
-    float orientation;
+    double x;
+    double y;
+    double orientation;
   } Point;
 
   typedef struct {
     Point p1;
     Point p2;
-    float course;
+    double course;
 
     bool backward;
-    float speed;
-    float length2;
-    float length;
-    float percent;
+    double speed;
+    double length2;
+    double length;
+    double percent;
   } Leg;
   typedef std::vector<Leg> Legs;
 
@@ -63,7 +63,7 @@ protected:
   virtual void drivetoCallback(const ros::MessageEvent<geometry_msgs::PoseStamped>&);
   virtual void drivepathCallback(const ros::MessageEvent<nav_msgs::Path>&);
   virtual void cmd_velCallback(const geometry_msgs::Twist&);
-  virtual void speedCallback(const std_msgs::Float32&);
+  virtual void speedCallback(const std_msgs::Float64&);
   virtual bool alternativeTolerancesService(mocup_msgs::SetAlternativeTolerance::Request& req, mocup_msgs::SetAlternativeTolerance::Response& res);
 
 //  virtual void actionCallback(const hector_move_base_msgs::MoveBaseActionGeneric&);
@@ -72,8 +72,8 @@ protected:
   virtual void publishActionResult(actionlib_msgs::GoalStatus::_status_type, const std::string& text = std::string());
 
   void addLeg(geometry_msgs::Pose const&);
-  void limitSpeed(float &speed);
-  void setDriveCommand(float speed, float kappa, float tan_gamma);
+  void limitSpeed(double &speed);
+  void setDriveCommand(double speed, double kappa, double tan_gamma);
 
 private:
   ros::NodeHandle nh;

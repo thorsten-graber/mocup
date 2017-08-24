@@ -40,7 +40,7 @@ namespace Mocup {
 
   void joyCallback(const sensor_msgs::JoyConstPtr joystick) {
     if (axis_speed > 0 && (size_t) axis_speed <= joystick->axes.size()) {
-      float value = joystick->axes[axis_speed-1];
+      double value = joystick->axes[axis_speed-1];
       if (value >= 0.0)
         motionCommand.speed = value * speedForward;
       else

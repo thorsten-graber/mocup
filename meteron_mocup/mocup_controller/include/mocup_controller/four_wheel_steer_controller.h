@@ -50,28 +50,28 @@ class FourWheelSteerController: public VehicleControlInterface
 
     virtual void executeTwist(const geometry_msgs::Twist& velocity)
     {
-      float backward = (velocity.linear.x < 0) ? -1.0 : 1.0;
-      float speed = backward * sqrt(velocity.linear.x*velocity.linear.x + velocity.linear.y*velocity.linear.y);
+      double backward = (velocity.linear.x < 0) ? -1.0 : 1.0;
+      double speed = backward * sqrt(velocity.linear.x*velocity.linear.x + velocity.linear.y*velocity.linear.y);
       mp_->limitSpeed(speed);
 
-//      float kappa = velocity.angular.z * speed;
-//      float tan_gamma = tan(velocity.linear.y / velocity.linear.x);
+//      double kappa = velocity.angular.z * speed;
+//      double tan_gamma = tan(velocity.linear.y / velocity.linear.x);
 //      setDriveCommand(speed, kappa, tan_gamma);
 
-      float omega = velocity.angular.z;
-      float atan_gamma = atan(velocity.linear.y / velocity.linear.x);
+      double omega = velocity.angular.z;
+      double atan_gamma = atan(velocity.linear.y / velocity.linear.x);
       publishDriveCommand(speed, omega, atan_gamma);
     }
 
     virtual void executeMotionCommand(double carrot_relative_angle, double carrot_orientation_error, double carrot_distance, double speed)
     {
-//      float sign = speed < 0.0 ? -1.0 : 1.0;
-//      float kappa     = sign * carrot_orientation_error / carrot_distance * 1.5;
-//      float tan_gamma = tan(carrot_relative_angle - carrot_orientation_error);
+//      double sign = speed < 0.0 ? -1.0 : 1.0;
+//      double kappa     = sign * carrot_orientation_error / carrot_distance * 1.5;
+//      double tan_gamma = tan(carrot_relative_angle - carrot_orientation_error);
 
-      float sign = speed < 0.0 ? -1.0 : 1.0;
-      float kappa     = sign * carrot_orientation_error / carrot_distance * 1.5;
-      float tan_gamma = sign * tan(carrot_relative_angle - carrot_orientation_error);
+      double sign = speed < 0.0 ? -1.0 : 1.0;
+      double kappa     = sign * carrot_orientation_error / carrot_distance * 1.5;
+      double tan_gamma = sign * tan(carrot_relative_angle - carrot_orientation_error);
 
       this->setDriveCommand(speed, kappa ,tan_gamma);
     }
@@ -97,15 +97,15 @@ class FourWheelSteerController: public VehicleControlInterface
       return "Four Wheel Steering Controller";
     }
 
-    void setDriveCommand(float speed, float kappa, float tan_gamma) {
+    void setDriveCommand(double speed, double kappa, double tan_gamma) {
 
-      float l = wheelBase / 2.0; // half wheel distance (front - rear)
+      double l = wheelBase / 2.0; // half wheel distance (front - rear)
 
       drive.speed = speed;
       mp_->limitSpeed(drive.speed);
 
       if (drive.speed != 0.0) {
-        float max_kappa = tan(max_steerAngle) / l;
+        double max_kappa = tan(max_steerAngle) / l;
         if (kappa >= max_kappa) {
           kappa = max_kappa;
           tan_gamma = 0;
@@ -115,7 +115,7 @@ class FourWheelSteerController: public VehicleControlInterface
           tan_gamma = 0;
 
         } else {
-          float max_tan_gamma = tan(max_steerAngle) - fabs(kappa) * l;
+          double max_tan_gamma = tan(max_steerAngle) - fabs(kappa) * l;
           if (tan_gamma >  max_tan_gamma) tan_gamma =  max_tan_gamma;
           if (tan_gamma < -max_tan_gamma) tan_gamma = -max_tan_gamma;
         }
@@ -126,10 +126,10 @@ class FourWheelSteerController: public VehicleControlInterface
       drivePublisher_.publish(drive);
     }
 
-    void publishDriveCommand(float speed, float omega, float atan_gamma) {
-        float l = wheelBase;
+    void publishDriveCommand(double speed, double omega, double atan_gamma) {
+        double l = wheelBase;
 
-        float sign = (speed < 0) ? -1.0 : 1.0;
+        double sign = (speed < 0) ? -1.0 : 1.0;
         drive.steer = sign*atan_gamma + atan((omega*l)/(2*fabs(speed)));
         if(speed == 0.0) drive.steer = 0;
 

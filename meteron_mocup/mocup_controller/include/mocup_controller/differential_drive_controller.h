@@ -60,7 +60,7 @@ class DifferentialDriveController: public VehicleControlInterface
 
     virtual void executeMotionCommand(double carrot_relative_angle, double carrot_orientation_error, double carrot_distance, double speed)
     {
-      float sign = speed < 0.0 ? -1.0 : 1.0;
+      double sign = speed < 0.0 ? -1.0 : 1.0;
 
       twist.linear.x = speed;
 
@@ -98,7 +98,7 @@ class DifferentialDriveController: public VehicleControlInterface
 
     void limitTwist(geometry_msgs::Twist& twist)
     {
-      float speed = twist.linear.x;
+      double speed = twist.linear.x;
 
       mp_->limitSpeed(speed);
 

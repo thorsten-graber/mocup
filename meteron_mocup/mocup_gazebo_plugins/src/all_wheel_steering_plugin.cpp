@@ -288,8 +288,8 @@ void AllWheelSteeringPlugin::Update()
             } else if (!cmd_.mode.compare("point_turn")) {
              steer_l = -M_PI_4;
              steer_r = M_PI_4;
-             speed_l = -cmd_.speed / r;
-             speed_r = cmd_.speed / r;
+             speed_l = -cmd_.speed;
+             speed_r = cmd_.speed;
              steer_old = 0;
             } else {
                 ROS_WARN_ONCE("No command received, or unknown command mode set - stopping rover!");
@@ -340,12 +340,12 @@ void AllWheelSteeringPlugin::Update()
 //        ROS_DEBUG("s: fl: [%f] fr: [%f] rl: [%f] rr: [%f]", vel_phi_fl, vel_phi_fr, vel_phi_rl, vel_phi_rr);
 //        ROS_DEBUG("v: fl: [%f] fr: [%f] rl: [%f] rr: [%f]\n", wheels[FRONT_LEFT].jointSpeed, wheels[FRONT_RIGHT].jointSpeed, wheels[REAR_LEFT].jointSpeed, wheels[REAR_RIGHT].jointSpeed);
 
-        wheels[FRONT_LEFT].wheelSpeed   = speed_l / cos(phi_fl);
-        wheels[FRONT_RIGHT].wheelSpeed  = speed_r / cos(phi_fr);
-        wheels[MIDDLE_LEFT].wheelSpeed  = speed_l;
-        wheels[MIDDLE_RIGHT].wheelSpeed = speed_r;
-        wheels[REAR_LEFT].wheelSpeed    = speed_l / cos(phi_rl);
-        wheels[REAR_RIGHT].wheelSpeed   = speed_r / cos(phi_rr);
+        wheels[FRONT_LEFT].wheelSpeed   = speed_l / r / cos(phi_fl);
+        wheels[FRONT_RIGHT].wheelSpeed  = speed_r / r / cos(phi_fr);
+        wheels[MIDDLE_LEFT].wheelSpeed  = speed_l / r;
+        wheels[MIDDLE_RIGHT].wheelSpeed = speed_r / r;
+        wheels[REAR_LEFT].wheelSpeed    = speed_l / r / cos(phi_rl);
+        wheels[REAR_RIGHT].wheelSpeed   = speed_r / r / cos(phi_rr);
 
         // odometry calculation
         // Compute angular velocity for ICC which is same as angular velocity of vehicle
@@ -415,12 +415,11 @@ void AllWheelSteeringPlugin::Update()
 
 void AllWheelSteeringPlugin::ComputeLocomotion(double speed, double steer, double& speed_l, double& speed_r, double& steer_l, double& steer_r)
 {
-    double l, b, r;
+    double l, b;
     double tan_steer;
 
     b = wheelTrack;
     l = wheelBase;
-    r = wheelRadius;
 
     if(steer > M_PI_2) {
         tan_steer = tan(M_PI_2);
@@ -433,42 +432,37 @@ void AllWheelSteeringPlugin::ComputeLocomotion(double speed, double steer, doubl
     steer_l = atan2(l*tan_steer,l-b*tan_steer);
     steer_r = atan2(l*tan_steer,l+b*tan_steer);
 
-//    if (speed > maxVelX) {
-//        speed = maxVelX;
-//    } else if (speed < -maxVelX) {
-//        speed = -maxVelX;
-//    }
-
     speed_l = speed*(1-b*tan_steer/l);
     speed_r = speed*(1+b*tan_steer/l);
 
-//    // limit wheel speeds for small radius
-//    if(speed_l > speed) {
-//        speed_l = speed;
-//        speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
-//    } else if(speed_l < -speed) {
-//        speed_l = -speed;
-//        speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
-//    } else if(speed_r > speed) {
-//        speed_r = speed;
-//        speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
-//    } else if(speed_r < -speed) {
-//        speed_r = -speed;
-//        speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
-//    }
-
-    speed_l /= r;
-    speed_r /= r;
+    // limit wheel speeds for small radius
+    if(steer > 0) {
+        // turn left -> check right wheel speed
+        if(speed_r > maxVelX) {
+            speed_r = maxVelX;
+            speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
+        } else if(speed_r < -maxVelX) {
+            speed_r = -maxVelX;
+            speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
+        }
+    } else {
+        // turn right -> check left wheel speed
+        if(speed_l > maxVelX) {
+            speed_l = maxVelX;
+            speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+        } else if(speed_l < -maxVelX) {
+            speed_l = -maxVelX;
+            speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+        }
+    }
 }
 
-// NEW: Store the velocities from the ROS message
 void AllWheelSteeringPlugin::motionCommandCallback(const mocup_msgs::MotionCommand::ConstPtr& cmd_msg)
 {
     boost::mutex::scoped_lock lock(mutex);
     cmd_ = *cmd_msg;
 }
 
-// NEW: Update this to publish odometry topic
 void AllWheelSteeringPlugin::publish_odometry()
 {
     if (!odomPub_) return;

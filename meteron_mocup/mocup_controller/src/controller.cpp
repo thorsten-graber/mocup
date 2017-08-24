@@ -6,7 +6,7 @@
 #include "quaternions.h"
 
 #include <geometry_msgs/PointStamped.h>
-#include <std_msgs/Float32.h>
+#include <std_msgs/Float64.h>
 
 //#include <hector_move_base_msgs/move_base_action.h>
 #include <mocup_controller/four_wheel_steer_controller.h>
@@ -105,7 +105,7 @@ bool Controller::configure()
   carrotPosePublisher = nh.advertise<geometry_msgs::PoseStamped>("carrot", 1, true);
   drivepathPublisher  = nh.advertise<nav_msgs::Path>("drivepath", 1, true);
 
-  diagnosticsPublisher = params.advertise<std_msgs::Float32>("velocity_error", 1, true);
+  diagnosticsPublisher = params.advertise<std_msgs::Float64>("velocity_error", 1, true);
 
   // action interface
   ros::NodeHandle action_nh("controller");
@@ -267,7 +267,7 @@ void Controller::cmd_velCallback(const geometry_msgs::Twist& velocity)
   vehicle_control_interface_->executeTwist(velocity);
 }
 
-void Controller::speedCallback(const std_msgs::Float32& speed) {
+void Controller::speedCallback(const std_msgs::Float64& speed) {
   motion_control_setup.current_speed = speed.data;
 }
 
@@ -443,33 +443,33 @@ void Controller::update()
   // calculate carrot
   Point carrot;
   unsigned int carrot_waypoint = current;
-  float carrot_percent = legs[current].percent;
-  float carrot_remaining = motion_control_setup.carrot_distance;
+  double carrot_percent = legs[current].percent;
+  double carrot_remaining = motion_control_setup.carrot_distance;
 
   while(carrot_waypoint < legs.size()) {
-    if (carrot_remaining <= (1.0f - carrot_percent) * legs[carrot_waypoint].length) {
+    if (carrot_remaining <= (1.0 - carrot_percent) * legs[carrot_waypoint].length) {
       carrot_percent += carrot_remaining / legs[carrot_waypoint].length;
       break;
     }
 
-    carrot_remaining -= (1.0f - carrot_percent) * legs[carrot_waypoint].length;
+    carrot_remaining -= (1.0 - carrot_percent) * legs[carrot_waypoint].length;
     if (carrot_waypoint+1 < legs.size() && legs[carrot_waypoint].backward == legs[carrot_waypoint+1].backward) {
       ROS_DEBUG("Carrot reached waypoint %d", carrot_waypoint);
-      carrot_percent = 0.0f;
+      carrot_percent = 0.0;
       carrot_waypoint++;
     } else {
       ROS_DEBUG("Carrot reached last waypoint or change of direction");
-      carrot_percent = 1.0f + carrot_remaining / legs[carrot_waypoint].length;
+      carrot_percent = 1.0 + carrot_remaining / legs[carrot_waypoint].length;
       break;
     }
   }
 
-  carrot.x           = (1.0f - carrot_percent) * legs[carrot_waypoint].p1.x + carrot_percent * legs[carrot_waypoint].p2.x;
-  carrot.y           = (1.0f - carrot_percent) * legs[carrot_waypoint].p1.y + carrot_percent * legs[carrot_waypoint].p2.y;
-  // carrot.orientation = legs[carrot_waypoint].p1.orientation + std::min(carrot_percent, 1.0f) * angular_norm(legs[carrot_waypoint].p2.orientation - legs[carrot_waypoint].p1.orientation);
+  carrot.x           = (1.0 - carrot_percent) * legs[carrot_waypoint].p1.x + carrot_percent * legs[carrot_waypoint].p2.x;
+  carrot.y           = (1.0 - carrot_percent) * legs[carrot_waypoint].p1.y + carrot_percent * legs[carrot_waypoint].p2.y;
+  // carrot.orientation = legs[carrot_waypoint].p1.orientation + std::min(carrot_percent, 1.0) * angular_norm(legs[carrot_waypoint].p2.orientation - legs[carrot_waypoint].p1.orientation);
 
   if (carrot_waypoint == (legs.size()-1) ){
-    carrot.orientation = legs[carrot_waypoint].p1.orientation + std::min(carrot_percent, 1.0f) * angular_norm(legs[carrot_waypoint].p2.orientation - legs[carrot_waypoint].p1.orientation);
+    carrot.orientation = legs[carrot_waypoint].p1.orientation + std::min(carrot_percent, 1.0) * angular_norm(legs[carrot_waypoint].p2.orientation - legs[carrot_waypoint].p1.orientation);
   }else{
     carrot.orientation = legs[carrot_waypoint].p1.orientation + carrot_percent * angular_norm(legs[carrot_waypoint].p2.orientation - legs[carrot_waypoint].p1.orientation);
   }
@@ -486,8 +486,8 @@ void Controller::update()
   // calculate steering angle
   double relative_angle = angular_norm(atan2(carrot.y - pose.pose.position.y, carrot.x - pose.pose.position.x) - angles[0]);
   double orientation_error = angular_norm(carrot.orientation - angles[0]);
-  float sign = legs[current].backward ? -1.0 : 1.0;
-  float speed = sign * legs[current].speed;
+  double sign = legs[current].backward ? -1.0 : 1.0;
+  double speed = sign * legs[current].speed;
 
   this->vehicle_control_interface_->executeMotionCommand(relative_angle, orientation_error, motion_control_setup.carrot_distance, speed );
 
@@ -506,7 +506,7 @@ void Controller::update()
     ROS_DEBUG("Commanded velocity: %f", vehicle_control_interface_->getCommandedSpeed());
     ROS_DEBUG("==> Mean error: %f %%", velocity_error * 100.0);
 
-    std_msgs::Float32 temp;
+    std_msgs::Float64 temp;
     temp.data = velocity_error;
     diagnosticsPublisher.publish(temp);
 
@@ -535,7 +535,7 @@ void Controller::update()
       lookat.y           = legs[lookat_waypoint].p2.y;
       lookat.orientation = legs[lookat_waypoint].p2.orientation;
 
-      float distance = sqrt((pose.pose.position.x - lookat.x)*(pose.pose.position.x - lookat.x) + (pose.pose.position.y - lookat.y)*(pose.pose.position.y - lookat.y));
+      double distance = sqrt((pose.pose.position.x - lookat.x)*(pose.pose.position.x - lookat.x) + (pose.pose.position.y - lookat.y)*(pose.pose.position.y - lookat.y));
       double relative_angle = angular_norm(atan2(lookat.y - pose.pose.position.y, lookat.x - pose.pose.position.x) - angles[0]);
 
       if (distance >= camera_lookat_distance && relative_angle >= -M_PI/2 && relative_angle <= M_PI/2) {
@@ -570,8 +570,8 @@ void Controller::update()
   }
 }
 
-void Controller::limitSpeed(float &speed) {
-  float inclination_max_speed = std::max(fabs(speed) * (1.0 - motion_control_setup.current_inclination * motion_control_setup.inclination_speed_reduction_factor), 0.0);
+void Controller::limitSpeed(double &speed) {
+  double inclination_max_speed = std::max(fabs(speed) * (1.0 - motion_control_setup.current_inclination * motion_control_setup.inclination_speed_reduction_factor), 0.0);
 
   if (speed > 0.0) {
     if (speed > motion_control_setup.max_speed) speed = motion_control_setup.max_speed;

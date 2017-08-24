@@ -52,17 +52,17 @@ public:
 
     virtual void executeTwist(const geometry_msgs::Twist& velocity)
     {
-        float backward = (velocity.linear.x < 0) ? -1.0 : 1.0;
-        float speed = backward * sqrt(velocity.linear.x*velocity.linear.x + velocity.linear.y*velocity.linear.y);
+        double backward = (velocity.linear.x < 0) ? -1.0 : 1.0;
+        double speed = backward * sqrt(velocity.linear.x*velocity.linear.x + velocity.linear.y*velocity.linear.y);
         mp_->limitSpeed(speed);
 
-        float omega = velocity.angular.z;
-        float atan_gamma = (velocity.linear.x == 0.0 && velocity.linear.y == 0.0) ? 0.0 : atan2(velocity.linear.y , velocity.linear.x);
+        double omega = velocity.angular.z;
+        double atan_gamma = (velocity.linear.x == 0.0 && velocity.linear.y == 0.0) ? 0.0 : atan2(velocity.linear.y , velocity.linear.x);
 
         publishDriveCommand(speed, omega, atan_gamma);
 
-//          float omega = velocity.angular.z;
-//          float atan_gamma = atan2(velocity.linear.y , velocity.linear.x);
+//          double omega = velocity.angular.z;
+//          double atan_gamma = atan2(velocity.linear.y , velocity.linear.x);
 //          setDriveCommand(speed, omega, atan_gamma);
 
     }
@@ -75,7 +75,7 @@ public:
         if ((fabs(carrot_relative_angle) > mp_->goal_angle_tolerance) || (fabs(carrot_relative_angle) > mp_->goal_angle_tolerance/8 && point_turn)) { // todo expose second parameter to launch file
             point_turn = true;
             // -> point turn to align with target
-            float sign;
+            double sign;
             if(carrot_relative_angle > 0.0) {
                 // rotate clock wise
                 sign = 1.0;
@@ -124,11 +124,11 @@ public:
         return "Point Turn Drive Controller";
     }
 
-    void publishDriveCommand(float speed, float omega, float atan_gamma) {
-        float l = wheelBase;
-        float b = wheelTrack;
+    void publishDriveCommand(double speed, double omega, double atan_gamma) {
+        double l = wheelBase;
+        double b = wheelTrack;
 
-        float sign = (speed < 0) ? -1.0 : 1.0;
+        double sign = (speed < 0) ? -1.0 : 1.0;
         drive.steer = sign*atan_gamma + atan2((omega*l),(2*fabs(speed)));
         if(speed != 0.0) {
             drive.speed = speed;
@@ -141,12 +141,12 @@ public:
         drivePublisher_.publish(drive);
     }
 
-    void setDriveCommand(float speed, float omega, float atan_gamma) {
-        float A,B;
-        float b = wheelTrack;
+    void setDriveCommand(double speed, double omega, double atan_gamma) {
+        double A,B;
+        double b = wheelTrack;
 
         if(speed != 0.0 || omega != 0.0) {
-            float sign = (omega < 0) ? -1.0 : 1.0;
+            double sign = (omega < 0) ? -1.0 : 1.0;
 
             A = (omega*b/2) / (speed+(omega*b/2));
             B = speed / (speed+(omega*b/2));

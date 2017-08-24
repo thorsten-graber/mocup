@@ -1,4 +1,4 @@
-float32 speed
-float32 steer
+float64 speed
+float64 steer
 bool brake
 string mode

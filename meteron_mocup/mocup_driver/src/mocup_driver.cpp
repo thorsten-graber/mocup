@@ -31,8 +31,8 @@ static long correctPosition(const int16_t actual_position_raw, long &previous_po
     return (long)actual_position_raw + overflow*USHRT_MAX;
 }
 
-static float centimeterToMeter(int centimeter) {
-    return (float) (centimeter / 100.0f);
+static double centimeterToMeter(int centimeter) {
+    return (double) (centimeter / 100.0f);
 }
 
 static double maxDeltaFilter(double y, double x, double c) {
@@ -120,7 +120,7 @@ void Driver::reset()
     actual_readings.motor.overflow.left_suspension_wheel_joint  = 0;
     actual_readings.motor.overflow.right_suspension_wheel_joint = 0;
     actual_readings.motor.overflow.camera_pan                   = 0;
-    actual_readings.motor.overflow.camera_tilt                  = 0;\
+    actual_readings.motor.overflow.camera_tilt                  = 0;
 
     actual_readings.ultrasonic.range_fl = NO_OBSTICAL;
     actual_readings.ultrasonic.range_fr = NO_OBSTICAL;
@@ -141,7 +141,7 @@ void Driver::reset()
     previous_readings.motor.overflow.left_suspension_wheel_joint  = 0;
     previous_readings.motor.overflow.right_suspension_wheel_joint = 0;
     previous_readings.motor.overflow.camera_pan                   = 0;
-    previous_readings.motor.overflow.camera_tilt                  = 0;\
+    previous_readings.motor.overflow.camera_tilt                  = 0;
 
     previous_readings.ultrasonic.range_fl = NO_OBSTICAL;
     previous_readings.ultrasonic.range_fr = NO_OBSTICAL;
@@ -156,6 +156,8 @@ void Driver::reset()
     odom.pose.pose.orientation.x = 0;
     odom.pose.pose.orientation.y = 0;
     odom.pose.pose.orientation.z = 0;
+
+    mode_old = "";
 }
 
 void Driver::stop()
@@ -168,30 +170,26 @@ void Driver::stop()
 
 void Driver::update(const ros::TimerEvent&)
 {
-    motor_command_publisher.publish(motor_control_parameters.control_input);
-}
+    // process motion command message
+    double steer_l, steer_r, speed_r, speed_l;
 
-void Driver::motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg)
-{
-    float steer_l, steer_r, speed_r, speed_l;
+    double r = motor_control_parameters.wheel_radius;
 
-    float r = motor_control_parameters.wheel_radius;
-
-    float cmd_vel = limitVelocity(cmd_msg.speed);
+    double cmd_vel = limitVelocity(motion_cmd.speed);
 
     // update desired motor velocity/position based on control mode
-    if(!strcmp(cmd_msg.mode.c_str(), "continuous")) {
+    if(!strcmp(motion_cmd.mode.c_str(), "continuous")) {
         // limit max dynamic in steering (max delta per step)
-        float steer = maxDeltaFilter(cmd_msg.steer, steer_old, 0.0025); // TODO: make this parameter configurable
+        double steer = maxDeltaFilter(motion_cmd.steer, steer_old, 0.0025); // TODO: make this parameter configurable
         steer_old = steer;
 
         ComputeLocomotion(cmd_vel, steer, speed_l, speed_r, steer_l, steer_r);
 
-    } else if (!cmd_msg.mode.compare("point_turn")) {
+    } else if (!motion_cmd.mode.compare("point_turn")) {
         steer_l = -M_PI_4;
-        steer_r = M_PI_4;
-        speed_l = -cmd_vel / r;
-        speed_r = cmd_vel/ r;
+        steer_r =  M_PI_4;
+        speed_l = -cmd_vel;
+        speed_r =  cmd_vel;
         steer_old = 0;
     } else {
         ROS_WARN_ONCE("No command received, or unknown command mode set - stopping rover!");
@@ -201,23 +199,50 @@ void Driver::motionCommandCallback(const mocup_msgs::MotionCommand& cmd_msg)
         speed_r = 0;
     }
 
+    // only drive, if wheel joint angle error is almost zero
+    double threshold = M_PI/180; // TODO: make this parameter configurable
+    double phi_l = actual_readings.motor.angle.left_suspension_wheel_joint;
+    double phi_r = actual_readings.motor.angle.right_suspension_wheel_joint;
+
+    if ((fabs(steer_l  - phi_l) > threshold || fabs(steer_r  - phi_r) > threshold) && (!motion_cmd.mode.compare("point_turn") || !mode_old.compare("point_turn")))
+    {
+        mode_old = "point_turn";
+
+        ROS_DEBUG("error: l: [%f] r: [%f]", fabs(steer_r  - phi_r), fabs(steer_l  + phi_l));
+        speed_l = 0.0;
+        speed_r = 0.0;
+    } else {
+        mode_old = motion_cmd.mode.c_str();
+    }
+
     motor_control_parameters.control_input.steer_r = roundRadToDeg(steer_r);
     motor_control_parameters.control_input.steer_l = roundRadToDeg(steer_l);
 
-    // Velocity [m/s] to PWM (max velocity = 255 pwm)
-    int16_t pwm_l = floatToInt(speed_l);
-    int16_t pwm_r = floatToInt(speed_r);
-    motor_control_parameters.control_input.speed_r = pwm_r;
-    motor_control_parameters.control_input.speed_l = pwm_l;
-}
+    //omega = speed(wheel speed) * 720(ticks per turn) * 0.02ms(controller frequency) * 3/2(gear factor) / r(wheel radius)
+    motor_control_parameters.control_input.speed_r = int16_t (speed_r * 720 * 0.02 * 3 / 2 / r); // todo: make parameters configurable
+    motor_control_parameters.control_input.speed_l = int16_t (speed_l * 720 * 0.02 * 3 / 2 / r); // todo: make parameters configurable
 
-void Driver::cameraCommandCallback(const geometry_msgs::QuaternionStamped& cmd_msg)
-{
+
+    // process camera command message
     double angles[3];
-    quaternion2angles(cmd_msg.quaternion, angles);
+    quaternion2angles(camera_cmd.quaternion, angles);
 
     motor_control_parameters.control_input.cam_yaw = roundRadToDeg(angles[0]);
     motor_control_parameters.control_input.cam_pit = roundRadToDeg(angles[1]);
+
+    motor_command_publisher.publish(motor_control_parameters.control_input);
+}
+
+void Driver::motionCommandCallback(const mocup_msgs::MotionCommand::ConstPtr& motion_cmd_msg)
+{
+    boost::mutex::scoped_lock lock(mutex);
+    motion_cmd = *motion_cmd_msg;
+}
+
+void Driver::cameraCommandCallback(const geometry_msgs::QuaternionStamped::ConstPtr& camera_cmd_msg)
+{
+    boost::mutex::scoped_lock lock(mutex);
+    camera_cmd = *camera_cmd_msg;
 }
 
 void Driver::readSensorsCallback(const mocup_msgs::RawSensors &sensor_msg) {
@@ -272,7 +297,7 @@ void Driver::publishOdometry()
     // Compute translation using previous yaw angle using last pose
     double euler[3];
     quaternion2euler(odom.pose.pose.orientation, euler);
-    s = r * (alpha_l + alpha_r)/2;
+    s = r * 2 * (alpha_l + alpha_r)/2/3;  // includes gear factor (2/3) // todo: make this parameter configurable
     x = s * cos(euler[0]);
     y = s * sin(euler[0]);
 
@@ -310,7 +335,7 @@ void Driver::publishOdometry()
     odom_trans.transform.translation.z = odom.pose.pose.position.z;
     odom_trans.transform.rotation      = odom.pose.pose.orientation;
 
-    odom_broadcaster.sendTransform(odom_trans);
+//    odom_broadcaster.sendTransform(odom_trans);
 }
 
 void Driver::publishJointStates()
@@ -340,14 +365,13 @@ void Driver::publishJointStates()
     joint_state_publisher.publish(motor_control_parameters.motor_states);
 }
 
-void Driver::ComputeLocomotion(float speed, float steer, float &speed_l, float &speed_r, float &steer_l, float &steer_r)
+void Driver::ComputeLocomotion(double speed, double steer, double &speed_l, double &speed_r, double &steer_l, double &steer_r)
 {
-    float l, b, r;
-    float tan_steer;
+    double l, b;
+    double tan_steer;
 
     b = motor_control_parameters.chassis_width;
     l = motor_control_parameters.chassis_length;
-    r = motor_control_parameters.wheel_radius;
 
     if(steer > M_PI_2) {
         tan_steer = tan(M_PI_2);
@@ -363,12 +387,30 @@ void Driver::ComputeLocomotion(float speed, float steer, float &speed_l, float &
     speed_l = speed*(1-b*tan_steer/l);
     speed_r = speed*(1+b*tan_steer/l);
 
-    speed_l /= r;
-    speed_r /= r;
+    // limit wheel speeds for small radius
+    if(steer > 0) {
+        // turn left -> check right wheel speed
+        if(speed_r > motor_control_parameters.max_velocity) {
+            speed_r = motor_control_parameters.max_velocity;
+            speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
+        } else if(speed_r < -motor_control_parameters.max_velocity) {
+            speed_r = -motor_control_parameters.max_velocity;
+            speed_l = speed_r*(l-b*tan_steer)/(l+b*tan_steer);
+        }
+    } else {
+        // turn right -> check left wheel speed
+        if(speed_l > motor_control_parameters.max_velocity) {
+            speed_l = motor_control_parameters.max_velocity;
+            speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+        } else if(speed_l < -motor_control_parameters.max_velocity) {
+            speed_l = -motor_control_parameters.max_velocity;
+            speed_r = speed_l*(l+b*tan_steer)/(l-b*tan_steer);
+        }
+    }
 }
 
-float Driver::limitVelocity(float value) { //todo check if cases
-    float velocity = value;
+double Driver::limitVelocity(double value) { //todo check if cases
+    double velocity = value;
     if (value > 0.0) {
         if (value > motor_control_parameters.max_velocity) velocity = motor_control_parameters.max_velocity;
         if (value < motor_control_parameters.min_velocity) velocity = motor_control_parameters.min_velocity;
@@ -386,11 +428,6 @@ float Driver::limitVelocity(float value) { //todo check if cases
     }
     return velocity;
 }
-
-int16_t Driver::floatToInt(float value) {
-    return (int16_t) round(value * 255.0f / motor_control_parameters.max_velocity);
-}
-
 
 int main(int argc, char **argv)
 {
