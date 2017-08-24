@@ -5,6 +5,6 @@ steer_angle: 90
 
 camera_mode: base_stabilized
 camera_speed: 120.0
-camera_max_pan: 180
-camera_max_tilt_down: 90
-camera_max_tilt_up: 90
+camera_max_pan: 179
+camera_max_tilt_down: 45
+camera_max_tilt_up: 45

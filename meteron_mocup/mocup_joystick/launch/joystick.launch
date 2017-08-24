@@ -2,10 +2,12 @@
 
 <launch>
   <arg name="dev" default="/dev/input/js0"/>
+  <arg name="deadzone" default="0.05"/>
   <arg name="config"/>
 
   <node name="joy" pkg="joy" type="joy_node" respawn="false" output="screen">
     <param name="dev" value="$(arg dev)" />
+    <param name="deadzone" value="$(arg deadzone)" />
   </node>
 
   <node name="mocup_joystick" pkg="mocup_joystick" type="mocup_joystick" respawn="false" output="screen">
