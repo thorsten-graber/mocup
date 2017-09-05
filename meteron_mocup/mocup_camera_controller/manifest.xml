@@ -1,0 +1,15 @@
+<package>
+  <description brief="mocup_camera_controller">
+
+     mocup_camera_controller
+
+  </description>
+  <author>Thorsten graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/mocup_camera_controller</url>
+
+  <depend package="roscpp"/>
+  <depend package="mocup_msgs"/>
+  <depend package="geometry_msgs"/>
+</package>
