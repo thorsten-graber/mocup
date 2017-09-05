@@ -4,6 +4,8 @@ meteron_mocup/mocup_driver/bin
 meteron_mocup/mocup_driver/build
 meteron_mocup/mocup_camera/bin
 meteron_mocup/mocup_camera/build
+meteron_mocup/mocup_camera_controller/bin
+meteron_mocup/mocup_camera_controller/build
 meteron_mocup/mocup_controller/bin
 meteron_mocup/mocup_controller/build
 meteron_mocup/mocup_description/build
